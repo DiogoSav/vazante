@@ -1,10 +1,11 @@
-import { TICK_HZ, type SaveMeta, type SimSpeed } from '@vazante/shared';
+import { TICK_HZ, type DifficultyId, type SaveMeta, type SimSpeed } from '@vazante/shared';
 import type { AudioDirector } from '@vazante/audio';
 import type { GameRenderer } from '@vazante/view3d';
 import type { GameClient } from './client.ts';
 import { setLocale, t } from './i18n.ts';
 import type { InputController } from './input.ts';
 import { saveSettings, type Settings } from './settings.ts';
+import { Tutorial } from './tutorial.ts';
 import { deleteSave, download, exportSave, getSave, importSave, listSaves, putSave } from './storage.ts';
 
 export type Screen = 'menu' | 'briefing' | 'playing' | 'paused';
@@ -29,6 +30,9 @@ export class Shell {
   private resumeSpeed: SimSpeed = 1;
   private lastAutosaveTick = 0;
   private toastSeq = 0;
+  readonly tutorial: Tutorial;
+  /** Start the guided tutorial when the briefing closes (on until it was finished or skipped once). */
+  withTutorial: boolean;
   readonly desktop: DesktopBridge | null = (window as unknown as { vazanteDesktop?: DesktopBridge }).vazanteDesktop ?? null;
 
   constructor(
@@ -40,6 +44,8 @@ export class Shell {
     initial: Screen,
   ) {
     this.screen = initial;
+    this.withTutorial = !settings.tutorialSeen;
+    this.tutorial = new Tutorial(client, view, () => this.applySettings({ ...this.settings, tutorialSeen: true }));
     input.onEscape = () => this.escape();
     input.onQuickSave = () => void this.save('quick');
     input.onQuickLoad = () => void this.loadSlot('quick');
@@ -79,6 +85,39 @@ export class Shell {
   /** Slow orbit behind the main menu. */
   update(dtS: number): void {
     if (this.screen === 'menu') this.view.rig.targetYaw += dtS * 0.05;
+    if (this.screen === 'playing') this.tutorial.update(performance.now());
+  }
+
+  /** Difficulty of the next game; rebuilds the waiting scenario so the briefing starts on it. */
+  setDifficulty(d: DifficultyId): void {
+    this.applySettings({ ...this.settings, difficulty: d });
+    this.client.setDifficulty(d);
+    this.changed();
+  }
+
+  setTutorial(on: boolean): void {
+    this.withTutorial = on;
+    this.changed();
+  }
+
+  /** Porto Velário, the 2 km city of v0.5 (sandbox while it is built). */
+  openCity(): void {
+    const p = new URLSearchParams(location.search);
+    p.set('scenario', 'city_war');
+    p.set('play', '1');
+    p.delete('load');
+    location.search = p.toString();
+  }
+
+  get scenario(): string {
+    return new URLSearchParams(location.search).get('scenario') ?? 'last_convoy';
+  }
+
+  /** Main menu "Tutorial": a recruit game with the guide on. */
+  newTutorial(): void {
+    this.withTutorial = true;
+    this.setDifficulty('recruit');
+    this.newGame();
   }
 
   private setSpeed(speed: SimSpeed): void {
@@ -100,6 +139,7 @@ export class Shell {
   start(): void {
     this.screen = 'playing';
     this.setSpeed(1);
+    if (this.withTutorial) this.tutorial.begin();
     this.changed();
   }
 
@@ -207,6 +247,14 @@ export class Shell {
   mainMenu(): void {
     if (this.screen !== 'menu' && !confirm(t('pause.confirmLeave'))) return;
     const seed = this.client.state.map?.seed ?? 1;
+    const p = new URLSearchParams(location.search);
+    if (p.has('scenario')) {
+      p.delete('scenario');
+      p.delete('load');
+      p.delete('play');
+      location.search = p.toString();
+      return;
+    }
     this.restart(seed, false);
   }
 
