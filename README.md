@@ -53,3 +53,7 @@ Requires Node 22+ and pnpm 10.
 | Full screen (desktop) | F11 |
 | Sound | N toggles |
 | Spawn test horde (dev) | K at the cursor |
+
+## Licence
+
+Vazante's code is MIT-licensed (see [LICENSE](LICENSE)), like the other gamestudio42 games. Third-party assets keep their own licences (CC0 models and sounds, OFL fonts, ISC icons), listed in [docs/assets.md](docs/assets.md).
