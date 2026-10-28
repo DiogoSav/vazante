@@ -119,7 +119,14 @@ interface only send commands and read frames. See the [game design](docs/GDD.md)
 
 ## Licence
 
-Vazante is MIT-licensed. Its code, city, procedural art and music are original; the game is
+Vazante is free software under the GNU Affero General Public License, version 3 or any later
+version ([`AGPL-3.0-or-later`](LICENSE)), following the
+[Game Studio 42](https://github.com/gamestudio42) default for complete games. If you run a modified
+version for other people, including as a website or over a network, you must offer them its source
+under the same licence. Copyright (c) 2026 Marcel Savegnago. Releases up to commit 9c3ae92 were published
+under MIT and remain available under those terms.
+
+Its code, city, procedural art and music are original; the game is
 mechanically inspired by Ebbtide, and no code or assets were copied. Third-party models, sounds,
-fonts and icons are CC0, OFL or ISC, each listed in the [asset register](docs/assets.md).
+fonts and icons keep their own licences (CC0, OFL or ISC), each listed in the [asset register](docs/assets.md).
 See [LICENSE](LICENSE) and [AGENTS.md](AGENTS.md) for project rules.
