@@ -1,4 +1,4 @@
-import type { Command, DifficultyId, Frame, FromWorker, MapInfo, SaveGame, SimEvent, ToWorker } from '@vazante/shared';
+import { TIME_SCALE, type Command, type DifficultyId, type Frame, type FromWorker, type MapInfo, type SaveGame, type SimEvent, type ToWorker } from '@vazante/shared';
 
 export interface Alert {
   id: number;
@@ -109,7 +109,7 @@ export class GameClient {
     } else if (msg.type === 'frame') {
       const f = msg.frame;
       const now = performance.now();
-      const expected = f.speed === 0 ? Infinity : 100 / f.speed;
+      const expected = f.speed === 0 ? Infinity : 100 / (f.speed * TIME_SCALE);
       const limited = this.lastFrameAt > 0 && f.speed >= 2 && now - this.lastFrameAt > expected * 3;
       this.lastFrameAt = now;
       let alerts = this.state.alerts;

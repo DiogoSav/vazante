@@ -66,6 +66,7 @@ import {
   MG_NEST,
   MISSION_IDS,
   TICK_HZ,
+  TIME_SCALE,
   type Frame,
   type MissionView,
   type ObjectiveView,
@@ -364,7 +365,7 @@ function TopBar({
             title={
               s === 0
                 ? `${t("top.paused")} (Space)`
-                : `${s}x (F${s === 4 ? 3 : s})`
+                : `${s * TIME_SCALE}x (F${s === 4 ? 3 : s})`
             }
             onClick={() => onSpeed(s === 0 && frame.speed === 0 ? 1 : s)}
           >
@@ -373,7 +374,7 @@ function TopBar({
             ) : s === 1 ? (
               <Play size={12} />
             ) : (
-              `${s}x`
+              `${s * TIME_SCALE}x`
             )}
           </button>
         ))}
