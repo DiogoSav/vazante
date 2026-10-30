@@ -35,7 +35,7 @@ function scatterHorde(w: World, count: number, bx: number, by: number, clearM: n
  */
 export function buildMission(id: MissionId, seed: number, opts: ScenarioOptions = {}): World {
   const def = MISSIONS[id];
-  const map = def.map === 'city' ? generateCityMap(seed) : generateSliceMap(seed);
+  const map = def.map === 'city' ? generateCityMap(seed, def.citySize) : generateSliceMap(seed);
   const w = new World(seed, map.grid, map.buildings, map.districts, map.sites, ZOMBIE_POOL_CAPACITY);
   w.difficulty = opts.difficulty ?? 'veteran';
   w.zombieKinds = def.zombieKinds;

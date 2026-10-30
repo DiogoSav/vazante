@@ -162,6 +162,9 @@ function fill(grid: Grid, r: Rect, g: Ground): void {
 
 const CITY_DISTRICTS = ['Cais Velho', 'Alto da Sé', 'Vila Operária', 'Ribeira', 'Centro', 'Porto Novo'];
 
+/** Side of the full Porto Velário in cells (2 km); SITE_RANGE and SITE_GAP are measured on it and scale with a smaller city. */
+const CITY_FULL = 512;
+
 /**
  * How far each strategic point lies from the base centre, in cells: about where they stood on the
  * first fixed map, so every seed plays at a similar scale.
@@ -178,7 +181,8 @@ const SITE_GAP = [150, 125, 100] as const;
 const SITE_MIN_ANGLE_COS = 0.819;
 
 /**
- * Porto Velário, the v0.5 city: 512 x 512 cells (2 km). A bay along the south edge, a river running
+ * Porto Velário, the v0.5 city: 512 x 512 cells (2 km), or `size` for a smaller one (survival plays
+ * on 384, 1.5 km; the strategic points then sit proportionally closer). A bay along the south edge, a river running
  * down from the north into it (streets cross it as bridges), wide avenues every few streets, six
  * districts in a 3 x 2 layout, the base on the waterfront and three depots inland. Each seed moves
  * the river, the base along the shore and the depots (each in its own district, away from the
@@ -258,8 +262,9 @@ export function generateCityMap(seed: number, size = 512): GeneratedMap {
   const roles = [['Depósito Norte', 'supply'], ['Hospital São Lucas', 'hospital'], ['Estação Ferroviária', 'station']] as const;
   // Try the full spacing first, then a little looser; a seed where nothing fits gets the old fixed layout.
   let depots: Array<[string, SiteRole, Rect]> | null = null;
+  const scale = size / CITY_FULL;
   for (const gap of SITE_GAP) {
-    depots = placeSites(rng, size, roles, base, gap, districtOf, dry);
+    depots = placeSites(rng, size, scale, roles, base, gap * scale, districtOf, dry);
     if (depots) break;
   }
   if (!depots) {
@@ -325,13 +330,14 @@ function cityZones(depots: Array<[string, SiteRole, Rect]>, districtOf: (x: numb
 }
 
 /**
- * The three depots for one try: each at its SITE_RANGE from the base, in a district of its own, at
+ * The three depots for one try: each at its SITE_RANGE (times `scale`) from the base, in a district of its own, at
  * least `gap` cells from the others and at least SITE_MIN_ANGLE_COS apart in bearing from the base,
  * so each pulls towards its own side of the city. Null when some depot finds no place.
  */
 function placeSites(
   rng: Rng,
   size: number,
+  scale: number,
   roles: ReadonlyArray<readonly [string, Exclude<SiteRole, 'command'>]>,
   base: Rect,
   gap: number,
@@ -343,7 +349,8 @@ function placeSites(
   const used = [districtOf(bcx, bcy)];
   const out: Array<[string, SiteRole, Rect]> = [];
   for (const [name, role] of roles) {
-    const [near, far] = SITE_RANGE[role];
+    const near = SITE_RANGE[role][0] * scale;
+    const far = SITE_RANGE[role][1] * scale;
     let pick: Rect | null = null;
     for (let i = 0; i < 2000 && !pick; i++) {
       const x0 = rng.int(8, size - 26);
