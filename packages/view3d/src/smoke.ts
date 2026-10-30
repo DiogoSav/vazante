@@ -131,6 +131,17 @@ export class FireAndSmoke {
   private acc = 0;
   /** Smoke tint follows the time of day (darker at night). */
   smokeShade = 1;
+  /** Only fires within `reach` metres of the focus emit, so a city full of burning buildings costs only what is in view. */
+  focusX = 0;
+  focusY = 0;
+  reach = Infinity;
+
+  /** Whether a fire is close enough to the focus to emit (and glow). */
+  inReach(f: FireSource): boolean {
+    const dx = f.x - this.focusX;
+    const dy = f.y - this.focusY;
+    return dx * dx + dy * dy < this.reach * this.reach;
+  }
 
   constructor(capacity = 3000) {
     const tex = puffTexture();
@@ -181,6 +192,7 @@ export class FireAndSmoke {
         this.fires.splice(k, 1);
         continue;
       }
+      if (!this.inReach(f)) continue;
       const s = f.strength * Math.min(1, f.ttl / 10);
       for (let i = 0; i < steps; i++) {
         const jx = (Math.random() - 0.5) * 1.6 * s;

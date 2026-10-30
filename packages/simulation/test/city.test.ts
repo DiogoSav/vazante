@@ -66,6 +66,35 @@ describe('Porto Velário', () => {
     }
   });
 
+  it('has one district of each land use, and the Depósito Norte always stands in the industrial one, over 30 seeds', () => {
+    for (let seed = 1; seed <= 30; seed++) {
+      const { grid, districts, sites, buildings } = generateCityMap(seed);
+      const zones = districts.map((d) => d.zone);
+      expect(zones.filter((z) => z === 'industrial'), `seed ${seed}`).toHaveLength(1);
+      expect(zones.filter((z) => z === 'downtown'), `seed ${seed}`).toHaveLength(1);
+      expect(zones, `seed ${seed}`).toContain('residential');
+      const depot = sites.find((s) => s.name === 'Depósito Norte')!;
+      const id = grid.district[grid.idx((depot.x0 + depot.x1) >> 1, (depot.y0 + depot.y1) >> 1)];
+      expect(districts.find((d) => d.id === id)!.zone, `seed ${seed}`).toBe('industrial');
+      // Each block takes the look of its district (a block across a border follows its centre).
+      const warehouses = buildings.filter((b) => b.style === 'warehouse');
+      const inIndustrial = warehouses.filter((b) => districts.find((d) => d.id === grid.district[grid.idx(b.x0, b.y0)])!.zone === 'industrial');
+      expect(inIndustrial.length / warehouses.length, `seed ${seed}`).toBeGreaterThan(0.9);
+      for (const b of buildings) if (b.style === 'house') expect(b.height).toBeLessThanOrEqual(6);
+    }
+  });
+
+  it('downtown stands taller than the houses', () => {
+    const { grid, districts, buildings } = generateCityMap(3);
+    const zoneOf = (b: (typeof buildings)[number]) => districts.find((d) => d.id === grid.district[grid.idx(b.x0, b.y0)])!.zone;
+    const mean = (zone: string) => {
+      const hs = buildings.filter((b) => zoneOf(b) === zone).map((b) => b.height);
+      return hs.reduce((a, h) => a + h, 0) / hs.length;
+    };
+    expect(mean('downtown')).toBeGreaterThan(mean('residential') * 4);
+    expect(buildings.some((b) => b.style === 'tower')).toBe(true);
+  });
+
   it('every street cell and every depot is reachable from the base, across the river', () => {
     for (const seed of [1, 2, 3]) {
       const { grid, sites } = generateCityMap(seed);

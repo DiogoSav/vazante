@@ -19,7 +19,7 @@ import {
 import { CameraRig } from './camera.ts';
 import { Crowd, clipRow, loadBakedModel } from './crowd.ts';
 import { CharacterBatch, IDLE_POSE, walkPose, type CharacterColors, type Pose } from './characters.ts';
-import { buildCity, buildDistrictOverlay, hash } from './city.ts';
+import { buildCity, buildDistrictOverlay, buildingDamage, hash } from './city.ts';
 import { LightPools } from './lights.ts';
 import { FireAndSmoke } from './smoke.ts';
 import { buildProps } from './props.ts';
@@ -38,6 +38,9 @@ const TRACER_LIFE_S = 0.08;
 const MAX_CORPSES = 1500;
 const CORPSE_FALL_S = 0.35;
 const PATH_VERTS = 4096;
+/** Fires emit within the camera span of the focus, clamped to this range (metres). */
+const FIRE_REACH_MIN_M = 160;
+const FIRE_REACH_MAX_M = 450;
 /** Metres of travel per full walk cycle (two steps). */
 /** Shadow texel / screen pixel: full shadows up to OK, none from MAX, a fade between. */
 const SHADOW_COARSE_OK = 1;
@@ -512,6 +515,9 @@ export class GameRenderer {
     this.drawTracers(dtS);
     this.particles.update(dtS);
     this.fire.smokeShade = 1 - 0.6 * this.night;
+    this.fire.focusX = this.rig.focusX;
+    this.fire.focusY = this.rig.focusY;
+    this.fire.reach = Math.min(FIRE_REACH_MAX_M, Math.max(FIRE_REACH_MIN_M, this.rig.span));
     this.fire.update(dtS);
     this.orders.update(dtS, this.unitScale());
     this.zone.update(t);
@@ -577,7 +583,7 @@ export class GameRenderer {
 
   /** Fires glow and explosions flash at night (in daylight the sprites carry them). */
   private drawFireLights(t: number, dtS: number): void {
-    for (const fs of this.fire.fires) this.lights.addPool(fs.x, fs.y, 7 + 5 * fs.strength, PALETTE.fireLight, 0.35 * FireAndSmoke.flicker(fs, t) * Math.min(1, fs.ttl / 10));
+    for (const fs of this.fire.fires) if (this.fire.inReach(fs)) this.lights.addPool(fs.x, fs.y, 7 + 5 * fs.strength, PALETTE.fireLight, 0.35 * FireAndSmoke.flicker(fs, t) * Math.min(1, fs.ttl / 10));
     for (let i = this.flashes.length - 1; i >= 0; i--) {
       const fl = this.flashes[i];
       fl.t -= dtS;
@@ -599,19 +605,35 @@ export class GameRenderer {
     if (k > 0) this.rig.shake(amount * k);
   }
 
-  /** A few buildings burn forever: the city fell recently. Placed by hash, away from bases. */
+  /**
+   * The city fell recently: the buildings drawn as burning burn forever, on the roof or out of a
+   * window, and some ruins still smoulder. Never right next to a base or depot.
+   */
   private addAmbientFires(map: MapInfo): void {
     const cs = map.cellSize;
-    let placed = 0;
     for (const b of map.buildings) {
-      if (placed >= 9) break;
-      if (hash(b.id * 2654435761 + map.seed) % 23 !== 0) continue;
+      const damage = buildingDamage(b, map.seed);
+      if (damage !== 'burning' && damage !== 'destroyed') continue;
       const x = ((b.x0 + b.x1 + 1) / 2) * cs;
       const y = ((b.y0 + b.y1 + 1) / 2) * cs;
       const nearSite = map.sites.some((s) => x > (s.x0 - 8) * cs && x < (s.x1 + 9) * cs && y > (s.y0 - 8) * cs && y < (s.y1 + 9) * cs);
       if (nearSite) continue;
-      this.fire.addFire(x, y, 1.6, Infinity, b.height);
-      placed++;
+      const r = hash(b.id * 911 + map.seed);
+      if (damage === 'destroyed') {
+        if (r % 3 === 0) this.fire.addFire(x + ((r >>> 4) % 5) - 2, y + ((r >>> 8) % 5) - 2, 0.6, Infinity, 0.8);
+      } else if (r % 5 < 3 || b.height < 6) {
+        this.fire.addFire(x, y, 1.2 + ((r >>> 4) % 8) / 10, Infinity, b.height);
+      } else {
+        // Out of a window on one face, a few floors up, leaning out from the wall.
+        const floor = 1 + ((r >>> 4) % Math.max(1, Math.floor(b.height / 3) - 1));
+        const t = ((r >>> 9) % 100) / 100 - 0.5;
+        const wx = (b.x1 - b.x0 + 1) * cs;
+        const wy = (b.y1 - b.y0 + 1) * cs;
+        const side = (r >>> 16) % 4;
+        const fx = side < 2 ? x + t * (wx - 4) : x + (side === 2 ? -1 : 1) * (wx / 2 + 0.4);
+        const fy = side < 2 ? y + (side === 0 ? -1 : 1) * (wy / 2 + 0.4) : y + t * (wy - 4);
+        this.fire.addFire(fx, fy, 0.9 + ((r >>> 20) % 5) / 10, Infinity, floor * 3 + 0.8);
+      }
     }
   }
 

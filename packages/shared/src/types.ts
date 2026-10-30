@@ -62,6 +62,12 @@ export type SquadOrder =
   | { kind: 'move'; to: Vec2 }
   | { kind: 'hold'; at: Vec2 };
 
+/** Land use of a district: sets its lot sizes, heights and the kind of buildings on them (see ZONES). */
+export type DistrictZone = 'downtown' | 'mixed' | 'residential' | 'industrial';
+
+/** How a building is drawn. The simulation only uses its footprint and height. */
+export type BuildingStyle = 'tower' | 'block' | 'house' | 'warehouse';
+
 export interface BuildingRect {
   id: number;
   /** Inclusive cell bounds. */
@@ -70,11 +76,13 @@ export interface BuildingRect {
   x1: number;
   y1: number;
   height: number;
+  style: BuildingStyle;
 }
 
 export interface DistrictInfo {
   id: number;
   name: string;
+  zone: DistrictZone;
   /** Inclusive cell bounds (vertical slice districts are rectangles). */
   x0: number;
   y0: number;

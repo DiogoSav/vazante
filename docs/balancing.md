@@ -155,6 +155,20 @@ Veteran is the reference; every other table in this file is tuned for it. Chosen
 | Turn time after bite | 60 to 180 s |
 | Rise time after death by zombie | 20 s |
 
+## Land use (`balance/zones.ts`)
+
+Every district has a zone that sets its lots and buildings. In Porto Velário the Depósito Norte
+district is always industrial, Centro is downtown (Alto da Sé when Centro is industrial), the rest
+of the north row is houses and the rest of the waterfront row is mixed. On the slice map: NW
+downtown, NE (depot) industrial, SW (base) houses, SE mixed.
+
+| Zone | Lot side (cells) | Built | Floors (3 m) | Parks | Drawn as |
+| --- | --- | --- | --- | --- | --- |
+| Downtown | 4–8 | 85 % | 4–18 | ×0.6 | blocks; towers on a podium from 9 floors |
+| Mixed | 3–7 | 78 % | 2–7 | ×1 | apartment blocks |
+| Residential | 3–4 | 80 % | 1–2 | ×1.4 | houses under tiled gable roofs, gardens |
+| Industrial | 6–11 | 75 % | 2–3 | ×0.3 | warehouses under barrel or metal roofs, concrete yards |
+
 ## Change log
 
 | Date | Value | Old → new | Reason |
@@ -171,6 +185,7 @@ Veteran is the reference; every other table in this file is tuned for it. Chosen
 | 2026-10-29 | strategic point area | site rectangle + 40 m → circle reaching 40 m past the longer side (r 76 m depot, 88 m base) | the area is drawn on the ground and the minimap as a circle; in economy modes districts no longer raise alerts or count as a goal |
 | 2026-10-29 | truck wreck | destroyed truck removed, mission lost → wreck keeps its cargo; 3 engineers repair it in 40 s to 50 % HP; the mission fails only if civilians aboard die or no engineer is left (and no held station) | losing the only truck ended the game with no way back |
 | 2026-10-29 | engineer repairs | — → 3 HP/s per engineer, 3 at most, on any damaged structure | engineers get a role of their own beyond building |
+| 2026-10-30 | building heights and lots | height by distance to the map centre, lots 3–7 everywhere → land use per district (table above) | districts read as downtown, houses and industry; the Depósito Norte stands in the industrial one |
 | 2026-10-30 | time scale | 1x/2x/4x → 1.25x/2.5x/5x | every speed step 25 % faster; host pacing only, the simulation and hashes are unchanged |
 | 2026-10-29 | field MG nest | drew on base stock anywhere → own box of 1500 rounds outside every base, topped up by an idle truck within 15 m | a nest far from the base should run dry and need supplying |
 | 2026-10-29 | truck at the station | — → 200 materials, 3 trucks at most; replaces a wrecked mission truck | a second way to get a truck back |

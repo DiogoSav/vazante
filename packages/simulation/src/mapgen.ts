@@ -1,5 +1,5 @@
 import { Rng } from '@vazante/kernel';
-import { Ground, type BuildingRect, type DistrictInfo, type SiteInfo, type SiteRole } from '@vazante/shared';
+import { Ground, ZONES, buildingStyle, type BuildingRect, type DistrictInfo, type DistrictZone, type SiteInfo, type SiteRole } from '@vazante/shared';
 import { Grid } from './grid.ts';
 
 export interface GeneratedMap {
@@ -17,6 +17,8 @@ interface Rect {
 }
 
 const DISTRICT_NAMES = ['Cais Velho', 'Alto da Sé', 'Vila Operária', 'Ribeira'];
+/** Slice districts in the order above: downtown NW, the depot's industrial NE, houses round the base SW, mixed SE. */
+const DISTRICT_ZONES: DistrictZone[] = ['downtown', 'industrial', 'residential', 'mixed'];
 
 /**
  * Vertical-slice map: 128 x 128 cells (512 m), a street grid with jitter, blocks of buildings,
@@ -44,6 +46,9 @@ export function generateSliceMap(seed: number, size = 128): GeneratedMap {
     }
   }
 
+  const half = size >> 1;
+  const quadrant = (x: number, y: number) => (x < half ? 0 : 1) + (y < half ? 0 : 2);
+
   // Blocks are the runs between streets (sidewalk excluded).
   const xs = blockRuns(isStreetX, size);
   const ys = blockRuns(isStreetY, size);
@@ -52,34 +57,20 @@ export function generateSliceMap(seed: number, size = 128): GeneratedMap {
     for (const [bx0, bx1] of xs) {
       const block: Rect = { x0: bx0, y0: by0, x1: bx1, y1: by1 };
       if (overlaps(block, base) || overlaps(block, depot)) continue;
-      if (rng.chance(0.1)) {
+      const zone = DISTRICT_ZONES[quadrant((bx0 + bx1) >> 1, (by0 + by1) >> 1)];
+      if (rng.chance(0.1 * ZONES[zone].parks)) {
         fill(grid, block, Ground.Park);
         continue;
       }
-      subdivide(rng, block, (lot) => {
-        if (!rng.chance(0.8)) return;
-        const id = buildings.length + 1;
-        const floors = rng.int(2, 10);
-        const h = floors * 3;
-        buildings.push({ id, ...lot, height: h });
-        for (let y = lot.y0; y <= lot.y1; y++) {
-          for (let x = lot.x0; x <= lot.x1; x++) {
-            const i = grid.idx(x, y);
-            grid.ground[i] = Ground.Building;
-            grid.buildingId[i] = id;
-            grid.heights[i] = h;
-          }
-        }
-      });
+      buildLots(rng, grid, block, zone, buildings);
     }
   }
 
-  const half = size >> 1;
   const districts: DistrictInfo[] = [
-    { id: 1, name: DISTRICT_NAMES[0], x0: 0, y0: 0, x1: half - 1, y1: half - 1 },
-    { id: 2, name: DISTRICT_NAMES[1], x0: half, y0: 0, x1: size - 1, y1: half - 1 },
-    { id: 3, name: DISTRICT_NAMES[2], x0: 0, y0: half, x1: half - 1, y1: size - 1 },
-    { id: 4, name: DISTRICT_NAMES[3], x0: half, y0: half, x1: size - 1, y1: size - 1 },
+    { id: 1, name: DISTRICT_NAMES[0], zone: DISTRICT_ZONES[0], x0: 0, y0: 0, x1: half - 1, y1: half - 1 },
+    { id: 2, name: DISTRICT_NAMES[1], zone: DISTRICT_ZONES[1], x0: half, y0: 0, x1: size - 1, y1: half - 1 },
+    { id: 3, name: DISTRICT_NAMES[2], zone: DISTRICT_ZONES[2], x0: 0, y0: half, x1: half - 1, y1: size - 1 },
+    { id: 4, name: DISTRICT_NAMES[3], zone: DISTRICT_ZONES[3], x0: half, y0: half, x1: size - 1, y1: size - 1 },
   ];
   for (const d of districts) {
     for (let y = d.y0; y <= d.y1; y++) for (let x = d.x0; x <= d.x1; x++) grid.district[grid.idx(x, y)] = d.id;
@@ -124,12 +115,12 @@ function blockRuns(isStreet: Uint8Array, size: number): Array<[number, number]> 
   return runs;
 }
 
-/** Split a block into lots of 3 to 7 cells with a one-cell alley gap on some sides. */
-function subdivide(rng: Rng, block: Rect, place: (lot: Rect) => void): void {
+/** Split a block into lots of `side` cells (min, max) with a one-cell alley gap on some sides. */
+function subdivide(rng: Rng, block: Rect, side: readonly [number, number], place: (lot: Rect) => void): void {
   for (let y = block.y0; y <= block.y1; ) {
-    const h = Math.min(rng.int(3, 7), block.y1 - y + 1);
+    const h = Math.min(rng.int(side[0], side[1]), block.y1 - y + 1);
     for (let x = block.x0; x <= block.x1; ) {
-      const w = Math.min(rng.int(3, 7), block.x1 - x + 1);
+      const w = Math.min(rng.int(side[0], side[1]), block.x1 - x + 1);
       const gapX = rng.chance(0.35) ? 1 : 0;
       const gapY = rng.chance(0.35) ? 1 : 0;
       const lot: Rect = { x0: x, y0: y, x1: x + w - 1 - gapX, y1: y + h - 1 - gapY };
@@ -138,6 +129,27 @@ function subdivide(rng: Rng, block: Rect, place: (lot: Rect) => void): void {
     }
     y += h;
   }
+}
+
+/** Build on the lots of one block to its zone: lot size, share built on, height and style. Skips lots that are not all dry land. */
+function buildLots(rng: Rng, grid: Grid, block: Rect, zone: DistrictZone, buildings: BuildingRect[]): void {
+  const spec = ZONES[zone];
+  subdivide(rng, block, spec.lot, (lot) => {
+    if (!rng.chance(spec.built)) return;
+    for (let y = lot.y0; y <= lot.y1; y++) for (let x = lot.x0; x <= lot.x1; x++) if (grid.ground[grid.idx(x, y)] !== Ground.Lot) return;
+    const id = buildings.length + 1;
+    const floors = rng.int(spec.floors[0], spec.floors[1]);
+    const h = floors * 3;
+    buildings.push({ id, ...lot, height: h, style: buildingStyle(zone, floors) });
+    for (let y = lot.y0; y <= lot.y1; y++) {
+      for (let x = lot.x0; x <= lot.x1; x++) {
+        const i = grid.idx(x, y);
+        grid.ground[i] = Ground.Building;
+        grid.buildingId[i] = id;
+        grid.heights[i] = h;
+      }
+    }
+  });
 }
 
 function overlaps(a: Rect, b: Rect): boolean {
@@ -268,6 +280,7 @@ export function generateCityMap(seed: number, size = 512): GeneratedMap {
     }
   }
 
+  const zones = cityZones(depots, districtOf);
   const xs = blockRuns(isStreetX, size);
   const ys = blockRuns(isStreetY, size);
   const buildings: BuildingRect[] = [];
@@ -275,30 +288,12 @@ export function generateCityMap(seed: number, size = 512): GeneratedMap {
     for (const [bx0, bx1] of xs) {
       const block: Rect = { x0: bx0, y0: by0, x1: bx1, y1: by1 };
       if (reserved.some((r) => overlaps(block, r))) continue;
-      // Taller towers downtown, low houses towards the edges.
-      const cx = (bx0 + bx1) / 2 / size - 0.5;
-      const cy = (by0 + by1) / 2 / size - 0.5;
-      const centre = 1 - Math.min(1, Math.sqrt(cx * cx + cy * cy) * 2);
-      if (rng.chance(style.parks)) {
+      const zone = zones[districtOf((bx0 + bx1) >> 1, (by0 + by1) >> 1)];
+      if (rng.chance(style.parks * ZONES[zone].parks)) {
         fillLand(grid, block, Ground.Park);
         continue;
       }
-      subdivide(rng, block, (lot) => {
-        if (!rng.chance(0.78)) return;
-        for (let y = lot.y0; y <= lot.y1; y++) for (let x = lot.x0; x <= lot.x1; x++) if (grid.ground[grid.idx(x, y)] !== Ground.Lot) return;
-        const id = buildings.length + 1;
-        const floors = rng.int(1, 3 + Math.round(centre * 14));
-        const h = floors * 3;
-        buildings.push({ id, ...lot, height: h });
-        for (let y = lot.y0; y <= lot.y1; y++) {
-          for (let x = lot.x0; x <= lot.x1; x++) {
-            const i = grid.idx(x, y);
-            grid.ground[i] = Ground.Building;
-            grid.buildingId[i] = id;
-            grid.heights[i] = h;
-          }
-        }
-      });
+      buildLots(rng, grid, block, zone, buildings);
     }
   }
 
@@ -306,7 +301,7 @@ export function generateCityMap(seed: number, size = 512): GeneratedMap {
   for (let row = 0; row < 2; row++) {
     for (let col = 0; col < 3; col++) {
       const id = districts.length + 1;
-      districts.push({ id, name: CITY_DISTRICTS[id - 1], x0: col * third, y0: row * half, x1: col === 2 ? size - 1 : (col + 1) * third - 1, y1: row === 1 ? size - 1 : half - 1 });
+      districts.push({ id, name: CITY_DISTRICTS[id - 1], zone: zones[id - 1], x0: col * third, y0: row * half, x1: col === 2 ? size - 1 : (col + 1) * third - 1, y1: row === 1 ? size - 1 : half - 1 });
     }
   }
   for (const d of districts) {
@@ -315,6 +310,18 @@ export function generateCityMap(seed: number, size = 512): GeneratedMap {
 
   const sites: SiteInfo[] = [{ kind: 'base', name: 'Posto Âncora', role: 'command', ...base }, ...depots.map(([name, role, r]) => ({ kind: 'depot' as const, name, role, ...r }))];
   return { grid, buildings, districts, sites };
+}
+
+/**
+ * Land use of the six districts (index = id - 1): the Depósito Norte district is always industrial,
+ * Centro is downtown (Alto da Sé when Centro is the industrial one), the rest of the north row is
+ * houses and the rest of the waterfront row is mixed.
+ */
+function cityZones(depots: Array<[string, SiteRole, Rect]>, districtOf: (x: number, y: number) => number): DistrictZone[] {
+  const [, , r] = depots.find(([, role]) => role === 'supply')!;
+  const industrial = districtOf((r.x0 + r.x1) >> 1, (r.y0 + r.y1) >> 1);
+  const downtown = industrial === 4 ? 1 : 4;
+  return [0, 1, 2, 3, 4, 5].map((i) => (i === industrial ? 'industrial' : i === downtown ? 'downtown' : i < 3 ? 'residential' : 'mixed'));
 }
 
 /**

@@ -95,7 +95,7 @@ export function cityWar(seed: number, opts: ScenarioOptions = {}): World {
 export function openField(seed: number, cells = 64): World {
   const grid = new Grid(cells, cells);
   grid.district.fill(1);
-  return new World(seed, grid, [], [{ id: 1, name: 'Campo', x0: 0, y0: 0, x1: cells - 1, y1: cells - 1 }], [], ZOMBIE_POOL_CAPACITY);
+  return new World(seed, grid, [], [{ id: 1, name: 'Campo', zone: 'mixed', x0: 0, y0: 0, x1: cells - 1, y1: cells - 1 }], [], ZOMBIE_POOL_CAPACITY);
 }
 
 export function createScenario(id: ScenarioId, seed: number, opts?: ScenarioOptions): World {
