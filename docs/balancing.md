@@ -68,9 +68,9 @@ Implemented in v0.1 (values in code). HP counts zombie attacks (1 per attack, 1 
 
 | Structure | Cells | Height (m) | HP | Materials | Build time (s) | Effect |
 | --- | --- | --- | --- | --- | --- | --- |
-| HESCO barrier | 1 × 1 | 2.2 | 300 | 20 | 15 | blocks movement, not sight; climbable with pile 5 |
-| Concrete wall | 1 × 1 | 3.5 | 600 | 40 | 30 | blocks movement and sight; climbable with pile 7 |
-| Gate | 1 × 1 | 3.0 | 450 | 30 | 25 | open/close (G); closed blocks movement and sight |
+| Sandbags (id `hesco`) | 1 × 1 | 1.2 | 300 | 20 | 15 | blocks movement, not sight; climbable with pile 5 |
+| Concrete wall | 1 × 1 | 3.5 | 600 | 40 | 30 | blocks movement and sight; climbable with pile 14 |
+| Gate | 1 × 1 | 3.0 | 450 | 30 | 25 | open/close (G); closed blocks movement and sight; climbable with pile 12 |
 | MG nest | 1 × 1 | 1.2 | 250 | 35 | 20 | crewed: 9 shots/s, 45 m, 60% base accuracy, 35 dmg, fires over walls, uses base ammo |
 
 Planned (not implemented yet):
@@ -185,6 +185,7 @@ downtown, NE (depot) industrial, SW (base) houses, SE mixed.
 | 2026-10-29 | strategic point area | site rectangle + 40 m → circle reaching 40 m past the longer side (r 76 m depot, 88 m base) | the area is drawn on the ground and the minimap as a circle; in economy modes districts no longer raise alerts or count as a goal |
 | 2026-10-29 | truck wreck | destroyed truck removed, mission lost → wreck keeps its cargo; 3 engineers repair it in 40 s to 50 % HP; the mission fails only if civilians aboard die or no engineer is left (and no held station) | losing the only truck ended the game with no way back |
 | 2026-10-29 | engineer repairs | — → 3 HP/s per engineer, 3 at most, on any damaged structure | engineers get a role of their own beyond building |
+| 2026-10-30 | HESCO → sandbags | name HESCO → Sandbags / Saco de areia, height 2.2 → 1.2 m (pile 9 → 5, as low as an MG nest); HP and cost unchanged | a low sandbag line the squads fire over, not a tall barrier |
 | 2026-10-30 | survival city | 512 cells (2 km), 4000 infected, cap 4000, clear 300 m, refill edge 250 m → 384 cells (1.5 km), 2250, cap 2250, clear 225 m, refill edge 190 m; site distances and gaps scale with the city | the 2 km city felt too big for survival; same density of infected on a smaller map |
 | 2026-10-30 | building heights and lots | height by distance to the map centre, lots 3–7 everywhere → land use per district (table above) | districts read as downtown, houses and industry; the Depósito Norte stands in the industrial one |
 | 2026-10-30 | time scale | 1x/2x/4x → 1.25x/2.5x/5x | every speed step 25 % faster; host pacing only, the simulation and hashes are unchanged |

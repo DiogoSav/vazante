@@ -42,7 +42,7 @@
    stops shooting and runs.
 3. **Keep the supplies moving.** Trucks carry ammunition and materials between depots and bases.
    The engine draws the horde, so choose the route and what the driver does when blocked.
-4. **Fortify.** Lay HESCO lines, concrete walls, gates and machine-gun nests, then survive the
+4. **Fortify.** Lay sandbag lines, concrete walls, gates and machine-gun nests, then survive the
    waves the Choir sends against the base.
 5. **Take the rifle.** Press `TAB` on a squad and fight a soldier's battle in third person, then
    give control back without leaving the same world.

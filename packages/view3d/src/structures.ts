@@ -11,13 +11,20 @@ function geometryFor(kind: StructureKind, cs: number): THREE.BufferGeometry {
   const w = cs - 0.2;
   switch (kind) {
     case 'hesco': {
-      // A 2 x 2 block of filled baskets with a slight gap between them.
+      // Sandbags: courses of bags laid in running bond, each course a little narrower than the one below.
       const parts: THREE.BufferGeometry[] = [];
-      const b = w / 2 - 0.1;
-      for (const ox of [-1, 1]) {
-        for (const oz of [-1, 1]) {
-          const g = new THREE.BoxGeometry(b, h, b);
-          g.translate((ox * w) / 4, h / 2, (oz * w) / 4);
+      const courses = 4;
+      const ch = h / courses;
+      const bags = 4;
+      for (let k = 0; k < courses; k++) {
+        const depth = w * (0.62 - k * 0.06);
+        const bag = w / bags - 0.12;
+        const shift = k % 2 === 0 ? 0 : bag / 2;
+        for (let i = 0; i < bags; i++) {
+          const x = -w / 2 + bag / 2 + 0.06 + i * (bag + 0.12) + shift;
+          const len = x + bag / 2 > w / 2 ? bag / 2 : bag;
+          const g = new THREE.BoxGeometry(len - 0.04, ch * 0.92, depth);
+          g.translate(len === bag ? x : x - bag / 4, ch * k + ch / 2, 0);
           parts.push(g);
         }
       }

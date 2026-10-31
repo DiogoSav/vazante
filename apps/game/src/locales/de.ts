@@ -57,7 +57,7 @@ export const de: Record<Key, string> = {
   "build.stock": "Material",
   "build.ammo": "Basismunition",
   "build.edit": "G Tor öffnen/schließen · Entf abreißen (unter dem Cursor)",
-  "structure.hesco": "HESCO",
+  "structure.hesco": "Sandsäcke",
   "structure.wall": "Betonmauer",
   "structure.gate": "Tor",
   "structure.mg_nest": "MG-Nest",
@@ -169,7 +169,7 @@ export const de: Record<Key, string> = {
   "top.night":
     "Nacht: abseits der Scheinwerfer sehen Soldaten nur halb so weit",
   "tip.hesco":
-    "Günstige, mit Sand gefüllte Barriere. Hält die Horde eine Weile auf; niedrig genug, um bald überklettert zu werden.",
+    "Günstige, niedrige Reihe Sandsäcke. Hält die Horde kurz auf; wenige Zombies klettern schon darüber, und Soldaten schießen darüber hinweg.",
   "tip.wall":
     "Hohe Betonmauer. Die Horde muss sich hoch auftürmen, um sie zu überwinden.",
   "tip.gate":

@@ -57,7 +57,7 @@ export const es: Record<Key, string> = {
   "build.stock": "Materiales",
   "build.ammo": "Munición de la base",
   "build.edit": "G abrir/cerrar puerta · Supr demoler (bajo el cursor)",
-  "structure.hesco": "HESCO",
+  "structure.hesco": "Sacos de arena",
   "structure.wall": "Muro de hormigón",
   "structure.gate": "Puerta",
   "structure.mg_nest": "Nido de ametralladora",
@@ -169,7 +169,7 @@ export const es: Record<Key, string> = {
   "top.day": "Día",
   "top.night": "Noche: lejos de los focos, los soldados ven la mitad de lejos",
   "tip.hesco":
-    "Barrera barata rellena de arena. Frena a la horda un tiempo; es baja y la escalan pronto.",
+    "Hilera baja y barata de sacos de arena. Frena a la horda poco tiempo; pocos zombis ya la escalan, y los soldados disparan por encima.",
   "tip.wall":
     "Muro alto de hormigón. La horda tiene que amontonarse mucho para escalarlo.",
   "tip.gate":

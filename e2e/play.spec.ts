@@ -23,7 +23,7 @@ test('build mode places a blueprint inside the base', async ({ page }) => {
   const count = async () => (await frame(page)).structures.filter((s) => s.kind !== 'command_post').length;
   expect(await count()).toBe(0);
   await page.keyboard.press('Digit1');
-  await expect(page.locator('.build button.on')).toContainText('HESCO');
+  await expect(page.locator('.build button.on')).toContainText('Saco de areia');
   // Try a few spots around the screen centre (the camera starts on the base).
   for (const [dx, dy] of [
     [40, 0],

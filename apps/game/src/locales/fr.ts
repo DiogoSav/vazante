@@ -57,7 +57,7 @@ export const fr: Record<Key, string> = {
   "build.stock": "Matériaux",
   "build.ammo": "Munitions de la base",
   "build.edit": "G ouvrir/fermer la porte · Suppr démolir (sous le curseur)",
-  "structure.hesco": "HESCO",
+  "structure.hesco": "Sacs de sable",
   "structure.wall": "Mur en béton",
   "structure.gate": "Porte",
   "structure.mg_nest": "Nid de mitrailleuse",
@@ -171,7 +171,7 @@ export const fr: Record<Key, string> = {
   "top.night":
     "Nuit : loin des projecteurs, les soldats voient deux fois moins loin",
   "tip.hesco":
-    "Barrière bon marché remplie de sable. Retient la horde un moment ; assez basse pour être vite escaladée.",
+    "Rangée basse et bon marché de sacs de sable. Retient la horde un court instant ; quelques zombies suffisent pour l’escalader, et les soldats tirent par-dessus.",
   "tip.wall":
     "Haut mur en béton. La horde doit s’entasser très haut pour l’escalader.",
   "tip.gate":
