@@ -42,6 +42,10 @@ export const PALETTE = {
   soldierDead: 0x4a3030,
   soldierBitten: 0xc9e05a,
   weapon: 0x1e2022,
+  /** Machine-gun nest gun: receiver and jacket, ammunition box, the belt's cartridges. */
+  gunMetal: 0x4a4f54,
+  ammoBox: 0x56603a,
+  brass: 0xb8923e,
   blood: 0x4a1010,
   bloodFresh: 0x9a1a14,
   spark: 0xffe08a,
