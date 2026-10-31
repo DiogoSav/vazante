@@ -412,13 +412,10 @@ function groundTexture(map: MapInfo): THREE.DataTexture {
           // Worn paint: gaps where the asphalt shows through.
           if (n2 > 0.72) c = PALETTE.street;
         } else {
-          // Patched asphalt, oil stains and cracks.
+          // Patched asphalt and oil stains. No crack lines (drawn along the texture diagonal they read
+          // as columns of dots in the three-quarter view) and no manholes.
           shade *= 0.92 + 0.12 * n1;
           if (n2 < 0.12) shade *= 0.9;
-          const crack = hash(Math.floor(tx / 6) * 31 + Math.floor(ty / 6) * 977) % 17 === 0 && Math.abs(((tx % 6) - (ty % 6))) < 1;
-          if (crack) shade *= 0.82;
-          const h = hash(cx * 5333 + cy * 9001);
-          if (h % 37 === 0 && Math.hypot(sx - 3.5, sy - 3.5) < 1.6) shade *= 0.6; // manhole
         }
       } else if (kind === Ground.Sidewalk) {
         if (sx === 0 || sy === 0) shade *= 0.9; // paving slabs

@@ -19,6 +19,12 @@ export const ZONES: Record<DistrictZone, ZoneSpec> = {
   industrial: { lot: [6, 11], built: 0.75, floors: [2, 3], parks: 0.3 },
 };
 
+/**
+ * No building on a lot narrower than `minSide` cells, and at most `floorsPerCell` floors per cell of
+ * its narrowest side (3 floors of 3 m on 4 m: never more than 2.25 times as tall as it is wide).
+ */
+export const BUILDING_SHAPE = { minSide: 2, floorsPerCell: 3 } as const;
+
 /** Downtown buildings from this many floors up are towers on a podium. */
 export const TOWER_MIN_FLOORS = 9;
 

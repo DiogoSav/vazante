@@ -46,6 +46,8 @@ export class World {
   economy = false;
   /** The day's pace when it is not DAY's. */
   day?: DayClock;
+  /** A truck's cargo limit when it is not TRUCK's (survival). */
+  truckCapacity?: { ammo: number; materials: number };
   /** How many zombie kinds spawn (ZOMBIES order): the first mission keeps to the basic three. */
   zombieKinds = ZOMBIES.length;
   nextId = 1;

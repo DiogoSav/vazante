@@ -90,7 +90,7 @@ Planned (not implemented yet):
 | --- | --- |
 | Resupply radius | 30 m from a base or depot |
 | Resupply rate | 10 rounds per soldier per second |
-| Cargo truck | 400 HP, 7 m/s, 6,000 rounds or 400 materials |
+| Cargo truck | 400 HP, 7 m/s, 6,000 rounds or 400 materials (survival: 2,500 rounds and 200 materials) |
 | Blocked when | 4 zombies within 3 m ahead |
 | Push through | 35% speed, 12 damage per tick to zombies at the bumper |
 | Reroute | zombie cells cost +120; gives up after 6 s blocked |
@@ -169,6 +169,9 @@ downtown, NE (depot) industrial, SW (base) houses, SE mixed.
 | Residential | 3–4 | 80 % | 1–2 | ×1.4 | houses under tiled gable roofs, gardens |
 | Industrial | 6–11 | 75 % | 2–3 | ×0.3 | warehouses under barrel or metal roofs, concrete yards |
 
+A strip at a block edge narrower than the smallest lot joins the lot before it. Lots under 2 cells
+stay empty, and a building has at most 3 floors per cell of its narrowest side (BUILDING_SHAPE).
+
 ## Change log
 
 | Date | Value | Old → new | Reason |
@@ -201,3 +204,5 @@ downtown, NE (depot) industrial, SW (base) houses, SE mixed.
 | 2026-10-30 | survival day | 40 → 30 min (still from 08:00) | Diogo found 40 min too long; 20 min was too short |
 | 2026-10-30 | wall climbing | PILE_UNIT_M 0.5 → 0.25 (14 stacked zombies top a 3.5 m wall, 9 a hesco); once climbable, one zombie per wall cell per second (CLIMB_INTERVAL_S 1); base ammo alerts below 800 and at 0 | Diogo saw hordes pour over walls: 7 zombies were enough and the whole pile went over at once, while the base sat at 0 ammo without warning. Bot at veteran unchanged: night shift, last convoy, hospital 3/3, bridge 2/3, survival 4 nights |
 | 2026-10-30 | horde routing | flow field ignores zombies → each zombie beyond the first in a cell adds 10 (one cell of walking) to it, up to 80; lane lean 0.15 → 0.3 and slack 10 → 20 | Diogo saw the whole horde file through one gap in a single line; now a queue makes going round or hitting another stretch of wall look shorter. Bot at veteran: night shift, last convoy, hospital, bridge 3/3 |
+| 2026-10-31 | survival materials | base 500 materials, Posto Âncora and the station make 60 a minute when secured, truck 6,000 rounds / 400 materials → base 100; only a secured Depósito Norte makes materials (and ammo) in every economy mode; a survival truck carries at most 2,500 rounds and 200 materials (the Depósito Norte truck starts with 2,500 / 200) | Diogo wanted materials to be scarce and fetched from the depot by convoy, never earned by sitting at the base |
+| 2026-10-31 | building shape | edge strips of 1–2 cells became their own lots, any lot took any floor count (a 1-cell tower up to 18 floors) → strips join the previous lot, lots under 2 cells stay empty, floors ≤ 3 × narrowest side in cells (height ≤ 2.25 × width); about 25 % fewer buildings | Diogo saw towers as thin as a wall: 2,445 one-cell buildings over four cities, the worst 13.5 times taller than wide |

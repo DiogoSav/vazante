@@ -42,6 +42,7 @@ export function buildMission(id: MissionId, seed: number, opts: ScenarioOptions 
   w.fog = true;
   w.economy = def.economy === true;
   if (def.day) w.day = { ...def.day };
+  if (def.truckCapacity) w.truckCapacity = { ...def.truckCapacity };
   const diff = DIFFICULTY[w.difficulty];
   const home = w.bases.find((b) => b.kind === 'base')!;
   if (w.economy) home.control = 100;

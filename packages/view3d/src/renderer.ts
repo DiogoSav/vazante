@@ -529,6 +529,7 @@ export class GameRenderer {
     this.lights.end(this.night);
     this.updateLighting();
     this.districts.visible = !this.economy && this.rig.band !== 'tactical' && !this.rig.direct;
+    this.post.groundStep = this.rig.direct ? 0 : this.rig.span / this.rig.pixelsHigh / Math.tan(this.rig.tilt);
     this.post.render(this.renderer, this.scene, this.rig.active);
   }
 

@@ -4,10 +4,10 @@ import type { SquadKind } from './units.ts';
  * Economy of the long modes (survival, the city sandbox). Every site (base and depots) is a
  * strategic point with a control value: it rises by `controlStep` a second while soldiers in its
  * area (a circle `zoneMarginM` beyond the site's longer half-side, see siteZone) outnumber the infected there, and falls while at least
- * `overrunMin` infected outnumber them two to one. Above `heldAbove` the site is secured: every
- * `everyS` it adds `siteMaterials` to its own stock, so depot income waits there until a truck
- * brings it in. A secured supply depot also makes `supplyAmmo`; a secured hospital makes no
- * materials but medical kits (see MEDKITS), and inside it soldiers heal `hospitalHealPerS` and bites
+ * `overrunMin` infected outnumber them two to one. Above `heldAbove` the site is secured. Only a
+ * secured supply depot produces: every `everyS` it adds `siteMaterials` and `supplyAmmo` to its own
+ * stock, which waits there until a truck brings it in; the home base and the station make nothing.
+ * A secured hospital makes medical kits (see MEDKITS), and inside it soldiers heal `hospitalHealPerS` and bites
  * are cured for free; a secured railway station lets the base pay materials for a new squad, which
  * arrives at the station.
  */

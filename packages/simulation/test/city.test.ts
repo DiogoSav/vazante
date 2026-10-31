@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Ground, MISSIONS, STRUCTURE_FLOW_PENALTY } from '@vazante/shared';
+import { BUILDING_SHAPE, Ground, MISSIONS, STRUCTURE_FLOW_PENALTY } from '@vazante/shared';
 import { FlowJob, SimulationEngine, computeFlowField, generateCityMap, type Grid } from '../src/index.ts';
 
 function reachable(grid: Grid, start: number): Uint8Array {
@@ -93,6 +93,16 @@ describe('Porto Velário', () => {
     };
     expect(mean('downtown')).toBeGreaterThan(mean('residential') * 4);
     expect(buildings.some((b) => b.style === 'tower')).toBe(true);
+  });
+
+  it('no building is a sliver: at least BUILDING_SHAPE.minSide cells wide and at most 3 floors per cell of width', () => {
+    for (const seed of [1, 2, 3]) {
+      for (const b of generateCityMap(seed).buildings) {
+        const narrowest = Math.min(b.x1 - b.x0 + 1, b.y1 - b.y0 + 1);
+        expect(narrowest).toBeGreaterThanOrEqual(BUILDING_SHAPE.minSide);
+        expect(b.height / 3).toBeLessThanOrEqual(narrowest * BUILDING_SHAPE.floorsPerCell);
+      }
+    }
   });
 
   it('every street cell and every depot is reachable from the base, across the river', () => {

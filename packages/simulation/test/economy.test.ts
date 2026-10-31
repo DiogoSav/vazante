@@ -69,6 +69,46 @@ describe('economy', () => {
     expect(view.income.ammo).toBe(ECONOMY.supplyAmmo);
   });
 
+  it('only the supply depot produces: the secured base and station make nothing', () => {
+    const e = survival();
+    const w = e.world;
+    const home = site(e, 'command');
+    const station = site(e, 'station');
+    station.control = 100;
+    teleport(e, w.squads[0].id, centre(station));
+    const before = { home: home.materials, station: station.materials };
+    run(e, ECONOMY.everyS * TICK_HZ + 1);
+    expect(siteHeld(w, home)).toBe(true);
+    expect(siteHeld(w, station)).toBe(true);
+    expect(home.materials).toBe(before.home);
+    expect(station.materials).toBe(before.station);
+    const income = e.frame(false).bases;
+    expect(income.find((b) => b.id === home.id)!.income).toEqual({ materials: 0, ammo: 0 });
+    expect(income.find((b) => b.id === station.id)!.income).toEqual({ materials: 0, ammo: 0 });
+  });
+
+  it('survival starts with 100 materials and a truck carries at most 200 materials and 2500 rounds', () => {
+    const e = survival();
+    const w = e.world;
+    const home = site(e, 'command');
+    expect(home.materials).toBe(100);
+    const depot = site(e, 'supply');
+    depot.materials = 1000;
+    depot.ammo = 10000;
+    const [dx, dy] = centre(depot);
+    const truck = spawnTruck(w, dx, dy);
+    e.enqueue({ type: 'load', vehicle: truck.id, ammo: 6000, materials: 400 });
+    run(e, 1);
+    expect(truck.cargoMaterials).toBe(200);
+    expect(truck.cargoAmmo).toBe(2500);
+    expect(depot.materials).toBe(800);
+    expect(depot.ammo).toBe(7500);
+    for (const v of w.vehicles) {
+      expect(v.cargoMaterials).toBeLessThanOrEqual(200);
+      expect(v.cargoAmmo).toBeLessThanOrEqual(2500);
+    }
+  });
+
   it('a secured site falls when the infected outnumber the soldiers there', () => {
     const e = survival();
     const w = e.world;
