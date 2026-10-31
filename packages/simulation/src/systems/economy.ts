@@ -22,11 +22,11 @@ export function siteHeld(w: World, b: Base): boolean {
 export function siteIncome(w: World): Map<number, { materials: number; ammo: number }> {
   const out = new Map<number, { materials: number; ammo: number }>();
   for (const b of w.bases) {
-    const held = w.economy && siteHeld(w, b);
+    // Only the supply depot produces: materials have to be fetched from there by truck.
+    const supply = w.economy && b.role === 'supply' && siteHeld(w, b);
     out.set(b.id, {
-      // The hospital makes medical kits, not materials.
-      materials: held && b.role !== 'hospital' ? ECONOMY.siteMaterials : 0,
-      ammo: held && b.role === 'supply' ? ECONOMY.supplyAmmo : 0,
+      materials: supply ? ECONOMY.siteMaterials : 0,
+      ammo: supply ? ECONOMY.supplyAmmo : 0,
     });
   }
   return out;

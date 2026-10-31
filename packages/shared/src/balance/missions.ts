@@ -121,6 +121,8 @@ export interface MissionDef {
   commandPost: boolean;
   /** Districts and sites produce (see ECONOMY). */
   economy?: boolean;
+  /** A truck's cargo limit in this mission when it is not TRUCK's capacityAmmo / capacityMaterials. */
+  truckCapacity?: { ammo: number; materials: number };
   /** A day of its own instead of DAY (survival: a longer day that starts in the morning). */
   day?: DayClock;
   stages: readonly StageDef[];
@@ -303,16 +305,18 @@ export const MISSIONS: Readonly<Record<MissionId, MissionDef>> = {
     ],
     trucks: [
       { at: "base", ammo: 0, materials: 0 },
-      { at: "Depósito Norte", ammo: 3000, materials: 200 },
+      { at: "Depósito Norte", ammo: 2500, materials: 200 },
     ],
     zones: [],
     zombies: 2250,
     zombieKinds: ZOMBIES.length,
     clearRadiusM: 225,
-    materials: 500,
+    // More materials only come from Depósito Norte, a truckload at a time.
+    materials: 100,
     ammo: 2500,
     commandPost: true,
     economy: true,
+    truckCapacity: { ammo: 2500, materials: 200 },
     day: { lengthS: 1800, startHour: 8 },
     stages: [
       {

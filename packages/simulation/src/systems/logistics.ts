@@ -302,8 +302,9 @@ export function loadCargo(w: World, id: number, ammo: number, materials: number,
   if (!site) return 'not_at_site';
   const a = Math.floor(ammo);
   const m = Math.floor(materials);
-  const da = a >= 0 ? Math.min(a, site.ammo, TRUCK.capacityAmmo - v.cargoAmmo) : -Math.min(-a, v.cargoAmmo);
-  const dm = m >= 0 ? Math.min(m, site.materials, TRUCK.capacityMaterials - v.cargoMaterials) : -Math.min(-m, v.cargoMaterials);
+  const cap = w.truckCapacity ?? { ammo: TRUCK.capacityAmmo, materials: TRUCK.capacityMaterials };
+  const da = a >= 0 ? Math.min(a, site.ammo, Math.max(0, cap.ammo - v.cargoAmmo)) : -Math.min(-a, v.cargoAmmo);
+  const dm = m >= 0 ? Math.min(m, site.materials, Math.max(0, cap.materials - v.cargoMaterials)) : -Math.min(-m, v.cargoMaterials);
   v.cargoAmmo += da;
   site.ammo -= da;
   v.cargoMaterials += dm;
