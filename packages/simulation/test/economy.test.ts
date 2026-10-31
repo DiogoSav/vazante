@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { CELL_SIZE, ECONOMY, SoldierCondition, TICK_HZ } from '@vazante/shared';
-import { SimulationEngine, type Base } from '../src/index.ts';
+import { CELL_SIZE, ECONOMY, Ground, MEDKITS, SoldierCondition, TICK_HZ } from '@vazante/shared';
+import { SimulationEngine, spawnTruck, type Base } from '../src/index.ts';
 import { siteHeld } from '../src/systems/economy.ts';
 
 function survival(seed = 3): SimulationEngine {
@@ -99,6 +99,97 @@ describe('economy', () => {
     expect(s.condition).toBe(SoldierCondition.Ok);
     expect(s.turnAt).toBe(-1);
     expect(s.hp).toBeGreaterThan(10);
+  });
+
+  it('a secured hospital makes MEDKITS.perDay kits a day into its own stock, and no materials', () => {
+    const e = survival();
+    const w = e.world;
+    const hospital = site(e, 'hospital');
+    const home = site(e, 'command');
+    expect(home.medkits).toBe(MEDKITS.start);
+    // Two kits' worth of time (a tenth of a day each), with the hospital kept secured throughout.
+    const every = (w.day!.lengthS * TICK_HZ) / MEDKITS.perDay;
+    let made = 0;
+    for (let t = 0; t <= 2 * every; t++) {
+      hospital.control = 100;
+      made += run(e, 1).filter((x) => x === 'medkit_made').length;
+    }
+    expect(made).toBe(2);
+    expect(hospital.medkits).toBe(2);
+    expect(home.medkits, 'the kits wait at the hospital for a truck').toBe(MEDKITS.start);
+    expect(hospital.materials).toBe(0);
+    expect(e.frame(false).bases.find((b) => b.id === hospital.id)!.income.materials).toBe(0);
+    expect(e.frame(false).bases.find((b) => b.id === hospital.id)!.medkits).toBe(2);
+  });
+
+  it('a truck loads the kits at the hospital and unloads them at the base on arrival', () => {
+    const e = survival();
+    const w = e.world;
+    const hospital = site(e, 'hospital');
+    const home = site(e, 'command');
+    hospital.medkits = 7;
+    const [hx, hy] = centre(hospital);
+    const truck = spawnTruck(w, hx, hy);
+    e.enqueue({ type: 'load', vehicle: truck.id, ammo: 0, materials: 0, medkits: 100 });
+    run(e, 1);
+    expect(truck.cargoMedkits).toBe(7);
+    expect(hospital.medkits).toBe(0);
+    e.enqueue({ type: 'convoy', vehicle: truck.id, to: home.id, policy: 'push_through' });
+    let ev: string[] = [];
+    for (let t = 0; t < 600 * TICK_HZ && !ev.includes('medkits_delivered'); t += TICK_HZ) ev = ev.concat(run(e, TICK_HZ));
+    expect(ev).toContain('medkits_delivered');
+    expect(home.medkits).toBe(MEDKITS.start + 7);
+    expect(truck.cargoMedkits).toBe(0);
+  });
+
+  it('in the base medical tent one kit fully heals one soldier and cures a bite; with no kits nothing happens', () => {
+    const e = survival();
+    const w = e.world;
+    const home = site(e, 'command');
+    const q = w.squads[0];
+    const [bitten, wounded, scratched] = q.members.map((id) => w.soldier(id)!);
+    bitten.hp = 50;
+    bitten.condition = SoldierCondition.Bitten;
+    bitten.turnAt = w.tick + 900;
+    wounded.hp = wounded.maxHp * (MEDKITS.treatBelow - 0.1);
+    scratched.hp = scratched.maxHp * (MEDKITS.treatBelow + 0.1);
+    const ev = run(e, 2 * TICK_HZ);
+    expect(ev.filter((t) => t === 'medkit_used')).toHaveLength(2);
+    expect(home.medkits).toBe(MEDKITS.start - 2);
+    expect(bitten.condition).toBe(SoldierCondition.Ok);
+    expect(bitten.turnAt).toBe(-1);
+    expect(bitten.hp).toBe(bitten.maxHp);
+    expect(wounded.hp).toBe(wounded.maxHp);
+    // Not hurt enough to spend a kit on.
+    expect(scratched.hp).toBeLessThan(scratched.maxHp);
+
+    home.medkits = 0;
+    wounded.hp = 10;
+    wounded.condition = SoldierCondition.Bitten;
+    wounded.turnAt = w.tick + 900;
+    expect(run(e, 2 * TICK_HZ)).not.toContain('medkit_used');
+    expect(wounded.condition).toBe(SoldierCondition.Bitten);
+  });
+
+  it('the Hospital São Lucas takes one whole city block: its building stands across the back, never on a street', () => {
+    for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
+      const e = SimulationEngine.create(seed, 'survival', { zombies: 0 });
+      const w = e.world;
+      const g = w.grid;
+      const hospital = site(e, 'hospital');
+      // The site is a block and its sidewalk ring: lots (and the building) inside, sidewalk round, street beyond.
+      for (let x = hospital.x0 + 1; x < hospital.x1; x++) {
+        for (let y = hospital.y0 + 1; y < hospital.y1; y++) expect([Ground.Lot, Ground.Building], `seed ${seed}`).toContain(g.ground[g.idx(x, y)]);
+        expect(g.ground[g.idx(x, hospital.y0)], `seed ${seed}`).toBe(Ground.Sidewalk);
+        expect(g.ground[g.idx(x, hospital.y0 - 1)], `seed ${seed}`).toBe(Ground.Street);
+      }
+      const building = w.buildings.find((b) => b.style === 'hospital')!;
+      expect(building.y1).toBe(hospital.y1 - 1);
+      expect(building.x0).toBeGreaterThan(hospital.x0 + 1);
+      expect(building.x1).toBeLessThan(hospital.x1 - 1);
+      const [cx, cy] = centre(hospital);
+      expect(g.isWalkableAt(cx, cy), `seed ${seed}`).toBe(true);
+    }
   });
 
   it('a secured station recruits a squad there for the base materials', () => {

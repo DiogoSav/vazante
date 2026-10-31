@@ -57,7 +57,7 @@ export const fr: Record<Key, string> = {
   "build.stock": "Matériaux",
   "build.ammo": "Munitions de la base",
   "build.edit": "G ouvrir/fermer la porte · Suppr démolir (sous le curseur)",
-  "structure.hesco": "HESCO",
+  "structure.hesco": "Sacs de sable",
   "structure.wall": "Mur en béton",
   "structure.gate": "Porte",
   "structure.mg_nest": "Nid de mitrailleuse",
@@ -96,6 +96,7 @@ export const fr: Record<Key, string> = {
   "convoy.stop": "Arrêter",
   "convoy.loadAmmo": "Charger 1000 munitions",
   "convoy.loadMat": "Charger 100 matériaux",
+  "convoy.loadKits": "Charger les trousses médicales",
   "convoy.unload": "Décharger",
   "convoy.hint":
     "Clic droit sur une base ou un dépôt pour livrer, sur la route pour y aller, ou sur une escouade pour la suivre. Les zombies suivent le bruit du moteur.",
@@ -146,6 +147,9 @@ export const fr: Record<Key, string> = {
   "top.baseAmmoShort": "base",
   "top.materials": "Matériaux de construction à la base : ce que dépensent constructions et renforts",
   "top.materialsShort": "mat.",
+  "top.medkits": "Trousses médicales à la base : chacune soigne entièrement un soldat sous la tente médicale de la base, morsures comprises. Un hôpital sécurisé en produit 10 par jour ; ramenez-les en camion.",
+  "top.medkitsAway": "{n} de plus attendent à l’hôpital : ramenez-les en camion",
+  "top.medkitsShort": "trousses",
   "top.materialsAway": "{n} de plus attendent dans les dépôts : ramenez-les en camion",
   "unit.ammo": "munitions",
   "direct.exit": "TAB pour quitter · R recharger · clic pour tirer",
@@ -171,7 +175,7 @@ export const fr: Record<Key, string> = {
   "top.night":
     "Nuit : loin des projecteurs, les soldats voient deux fois moins loin",
   "tip.hesco":
-    "Barrière bon marché remplie de sable. Retient la horde un moment ; assez basse pour être vite escaladée.",
+    "Rangée basse et bon marché de sacs de sable. Retient la horde un court instant ; quelques zombies suffisent pour l’escalader, et les soldats tirent par-dessus.",
   "tip.wall":
     "Haut mur en béton. La horde doit s’entasser très haut pour l’escalader.",
   "tip.gate":
@@ -355,6 +359,9 @@ export const fr: Record<Key, string> = {
   "alert.site_secured": "Point sécurisé",
   "alert.site_lost": "Point perdu",
   "alert.soldier_cured": "Morsure soignée à l’hôpital",
+  "alert.medkit_used": "Soldat soigné sous la tente médicale de la base ({n} trousses restantes)",
+  "alert.medkit_made": "L’hôpital a produit une trousse médicale ({n} y attendent un camion)",
+  "alert.medkits_delivered": "Un camion a livré {n} trousses médicales à la base",
   "alert.squad_recruited": "Renforts à la gare",
   "reason.no_station": "pas de gare",
   "reason.station_lost": "la gare n’est pas sécurisée",
@@ -379,6 +386,8 @@ export const fr: Record<Key, string> = {
   "struct.ammoOwn": "Caisse de munitions propre : {n}/{max}",
   "struct.ammoBase": "Puise dans {s} : {n}",
   "struct.fired": "A tiré {n} balles (~{s} s de feu)",
+  "struct.belt": "Bande {n}/{max}",
+  "struct.beltChange": "Changement de bande…",
   "struct.refillHint": "Un camion garé à côté remplit la caisse.",
   "struct.dismantle": "Démonter",
   "struct.dismantleHint": "Le démonte et rend la moitié des matériaux.",

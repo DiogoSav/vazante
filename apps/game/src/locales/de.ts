@@ -57,7 +57,7 @@ export const de: Record<Key, string> = {
   "build.stock": "Material",
   "build.ammo": "Basismunition",
   "build.edit": "G Tor öffnen/schließen · Entf abreißen (unter dem Cursor)",
-  "structure.hesco": "HESCO",
+  "structure.hesco": "Sandsäcke",
   "structure.wall": "Betonmauer",
   "structure.gate": "Tor",
   "structure.mg_nest": "MG-Nest",
@@ -95,6 +95,7 @@ export const de: Record<Key, string> = {
   "convoy.stop": "Anhalten",
   "convoy.loadAmmo": "1000 Munition laden",
   "convoy.loadMat": "100 Material laden",
+  "convoy.loadKits": "Sanitätskästen laden",
   "convoy.unload": "Entladen",
   "convoy.hint":
     "Rechtsklick auf eine Basis oder ein Depot zum Abliefern, auf die Straße zum Hinfahren oder auf einen Trupp, um ihm zu folgen. Zombies folgen dem Motorenlärm.",
@@ -144,6 +145,9 @@ export const de: Record<Key, string> = {
   "top.baseAmmoShort": "Basis",
   "top.materials": "Baumaterial in der Basis: das, was Bauten und Verstärkung kosten",
   "top.materialsShort": "Mat.",
+  "top.medkits": "Sanitätskästen in der Basis: jeder heilt einen Soldaten im Sanitätszelt der Basis vollständig, auch Bisse. Ein gesichertes Krankenhaus stellt 10 pro Tag her; hol sie mit dem Laster.",
+  "top.medkitsAway": "{n} weitere warten im Krankenhaus: hol sie mit dem Laster",
+  "top.medkitsShort": "San.",
   "top.materialsAway": "{n} weitere warten in den Depots: per Lastwagen holen",
   "unit.ammo": "Munition",
   "direct.exit": "TAB zum Verlassen · R nachladen · Klick zum Schießen",
@@ -169,7 +173,7 @@ export const de: Record<Key, string> = {
   "top.night":
     "Nacht: abseits der Scheinwerfer sehen Soldaten nur halb so weit",
   "tip.hesco":
-    "Günstige, mit Sand gefüllte Barriere. Hält die Horde eine Weile auf; niedrig genug, um bald überklettert zu werden.",
+    "Günstige, niedrige Reihe Sandsäcke. Hält die Horde kurz auf; wenige Zombies klettern schon darüber, und Soldaten schießen darüber hinweg.",
   "tip.wall":
     "Hohe Betonmauer. Die Horde muss sich hoch auftürmen, um sie zu überwinden.",
   "tip.gate":
@@ -353,6 +357,9 @@ export const de: Record<Key, string> = {
   "alert.site_secured": "Punkt gesichert",
   "alert.site_lost": "Punkt verloren",
   "alert.soldier_cured": "Biss im Krankenhaus behandelt",
+  "alert.medkit_used": "Soldat im Sanitätszelt der Basis behandelt ({n} Kästen übrig)",
+  "alert.medkit_made": "Das Krankenhaus hat einen Sanitätskasten hergestellt ({n} warten dort auf einen Laster)",
+  "alert.medkits_delivered": "Ein Laster hat {n} Sanitätskästen in die Basis gebracht",
   "alert.squad_recruited": "Verstärkung am Bahnhof",
   "reason.no_station": "kein Bahnhof",
   "reason.station_lost": "der Bahnhof ist nicht gesichert",
@@ -377,6 +384,8 @@ export const de: Record<Key, string> = {
   "struct.ammoOwn": "Eigene Munitionskiste: {n}/{max}",
   "struct.ammoBase": "Bezieht Munition aus {s}: {n}",
   "struct.fired": "{n} Schuss abgegeben (~{s} s Feuer)",
+  "struct.belt": "Gurt {n}/{max}",
+  "struct.beltChange": "Gurtwechsel…",
   "struct.refillHint": "Ein daneben geparkter Lastwagen füllt die Kiste auf.",
   "struct.dismantle": "Abbauen",
   "struct.dismantleHint": "Baut es ab und gibt die Hälfte des Materials zurück.",

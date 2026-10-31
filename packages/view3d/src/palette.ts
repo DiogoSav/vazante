@@ -22,6 +22,10 @@ export const PALETTE = {
   roofTiles: [0x8a4a32, 0x9a5a3a, 0x6e3f2e, 0x7d4f3c],
   warehouseTones: [0x7a8086, 0x8a8478, 0x6f7a72, 0x8c6f58, 0x9a9a92, 0x5f6a74],
   metalRoofs: [0x6a7074, 0x80868a, 0x5d6266, 0x7a5e4a],
+  /** Hospital São Lucas plaster, and the red cross on the hospital and the base medical tent. */
+  hospital: 0xe2ded2,
+  redCross: 0xc8302a,
+  medTent: 0xe8e6de,
   /** Ground of the lots by land use: house gardens and industrial yards. */
   garden: 0x4d6b38,
   yard: 0x5c5c57,
@@ -42,6 +46,10 @@ export const PALETTE = {
   soldierDead: 0x4a3030,
   soldierBitten: 0xc9e05a,
   weapon: 0x1e2022,
+  /** Machine-gun nest gun: receiver and jacket, ammunition box, the belt's cartridges. */
+  gunMetal: 0x4a4f54,
+  ammoBox: 0x56603a,
+  brass: 0xb8923e,
   blood: 0x4a1010,
   bloodFresh: 0x9a1a14,
   spark: 0xffe08a,

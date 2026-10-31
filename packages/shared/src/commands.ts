@@ -21,7 +21,7 @@ export type Command =
   /** Send a vehicle to a base or depot (by base id) with a risk policy for blocked roads. */
   | { type: 'convoy'; vehicle: number; to: number; policy: RiskPolicy }
   /** Load cargo from the stock of the site the vehicle is in (negative values unload). */
-  | { type: 'load'; vehicle: number; ammo: number; materials: number }
+  | { type: 'load'; vehicle: number; ammo: number; materials: number; medkits?: number }
   | { type: 'stop_vehicle'; vehicle: number }
   /** Drive a vehicle to the road nearest a point (`queue`: after the points it is already driving to). */
   | { type: 'drive'; vehicle: number; to: Vec2; queue?: boolean }

@@ -108,8 +108,10 @@ export interface Structure {
   fireAcc: number;
   /** MG nest outside every base: rounds in its own box (absent: it draws on its base). */
   ammo?: number;
-  /** MG nest: rounds fired since it was built. */
+  /** MG nest: rounds fired since it was built (a belt ends every MG_NEST.beltRounds). */
   fired?: number;
+  /** MG nest: ticks left changing the belt; it does not fire meanwhile. */
+  reloadT?: number;
 }
 
 export interface Base {
@@ -131,6 +133,8 @@ export interface Base {
   y1: number;
   materials: number;
   ammo: number;
+  /** Medical kits in stock: the home base's to use, the hospital's waiting for a truck (absent: none). */
+  medkits?: number;
 }
 
 export interface Vehicle {
@@ -143,6 +147,8 @@ export interface Vehicle {
   hp: number;
   cargoAmmo: number;
   cargoMaterials: number;
+  /** Medical kits aboard (absent in saves from before kits: none). */
+  cargoMedkits?: number;
   state: VehicleState;
   policy: RiskPolicy;
   /** Destination and origin base ids (0 = none). */

@@ -40,6 +40,7 @@ import {
   UserPlus,
   Users,
   Boxes,
+  BriefcaseMedical,
   Footprints,
   Siren,
   Trophy,
@@ -348,6 +349,8 @@ function TopBar({
   const lowAmmo = frame.bases[0] && frame.bases[0].ammo < 200;
   // Depot output waits in the depot's own stock until a truck brings it to the base.
   const away = frame.economy ? frame.bases.slice(1).reduce((n, b) => n + b.materials, 0) : 0;
+  // Kits made at the hospital wait there for a truck too.
+  const kitsAway = frame.bases.slice(1).reduce((n, b) => n + b.medkits, 0);
   return (
     <div className="topbar panel">
       <span className="brand">{t("app.title")}</span>
@@ -415,6 +418,17 @@ function TopBar({
           {frame.bases[0].materials}
           <small>{t("top.materialsShort")}</small>
           {away > 0 && <small className="away">+{away}</small>}
+        </span>
+      )}
+      {frame.bases[0] && (
+        <span
+          className={`chip ${frame.bases[0].medkits === 0 ? "warn" : ""}`}
+          title={`${t("top.medkits")}${kitsAway > 0 ? `\n${t("top.medkitsAway").replace("{n}", String(kitsAway))}` : ""}`}
+        >
+          <BriefcaseMedical size={13} />
+          {frame.bases[0].medkits}
+          <small>{t("top.medkitsShort")}</small>
+          {kitsAway > 0 && <small className="away">+{kitsAway}</small>}
         </span>
       )}
       <span className="sep" />
@@ -851,6 +865,7 @@ function VehicleList({
             <div className="row cargo">
               <Stat icon={Target}>{v.cargoAmmo}</Stat>
               <Stat icon={Boxes}>{v.cargoMaterials}</Stat>
+              {v.cargoMedkits > 0 && <Stat icon={BriefcaseMedical}>{v.cargoMedkits}</Stat>}
             </div>
           </div>
         </div>
@@ -908,6 +923,9 @@ const ALERT_STYLE: Partial<
   vehicle_repaired: { icon: Wrench, tone: "ok" },
   truck_bought: { icon: Truck, tone: "ok" },
   nest_empty: { icon: Target, tone: "warn" },
+  medkit_used: { icon: BriefcaseMedical, tone: "ok" },
+  medkit_made: { icon: BriefcaseMedical, tone: "info" },
+  medkits_delivered: { icon: BriefcaseMedical, tone: "ok" },
   ammo_low: { icon: Target, tone: "warn" },
   ammo_out: { icon: Target, tone: "danger" },
   wave_warning: { icon: Siren, tone: "warn" },
@@ -1253,6 +1271,7 @@ function VehiclePanel({
           </Stat>
           <Stat icon={Target}>{v.cargoAmmo}</Stat>
           <Stat icon={Boxes}>{v.cargoMaterials}</Stat>
+          {v.cargoMedkits > 0 && <Stat icon={BriefcaseMedical}>{v.cargoMedkits}</Stat>}
           <span className={`badge vs-${v.state}`}>
             {t(`vstate.${v.state}`)}
           </span>
@@ -1334,11 +1353,20 @@ function VehiclePanel({
                 >
                   {t("convoy.loadMat")}
                 </button>
+                {(here.medkits > 0 || here.role === "hospital") && (
+                  <button
+                    className="pill"
+                    disabled={here.medkits === 0}
+                    onClick={() => input.loadVehicle(0, 0, here.medkits)}
+                  >
+                    {t("convoy.loadKits")}
+                  </button>
+                )}
                 <button
                   className="pill"
-                  disabled={v.cargoAmmo + v.cargoMaterials === 0}
+                  disabled={v.cargoAmmo + v.cargoMaterials + v.cargoMedkits === 0}
                   onClick={() =>
-                    input.loadVehicle(-v.cargoAmmo, -v.cargoMaterials)
+                    input.loadVehicle(-v.cargoAmmo, -v.cargoMaterials, -v.cargoMedkits)
                   }
                 >
                   {t("convoy.unload")}
@@ -1424,6 +1452,9 @@ function StructurePanel({
             {st.ammo >= 0
               ? t("struct.ammoOwn").replace("{n}", String(st.ammo)).replace("{max}", String(MG_NEST.fieldAmmo))
               : t("struct.ammoBase").replace("{s}", base?.name ?? "").replace("{n}", String(base?.ammo ?? 0))}
+          </span>
+          <span className={st.reloading ? "warn" : ""}>
+            {st.reloading ? t("struct.beltChange") : t("struct.belt").replace("{n}", String(st.belt)).replace("{max}", String(MG_NEST.beltRounds))}
           </span>
           <span className="muted">
             {t("struct.fired").replace("{n}", String(st.fired)).replace("{s}", String(Math.round(st.fired / MG_NEST.shotsPerS)))}
@@ -1639,6 +1670,9 @@ function alertText(a: GameClient["state"]["alerts"][number]): string {
     case "objective_done":
     case "night_survived":
     case "soldier_cured":
+    case "medkit_used":
+    case "medkit_made":
+    case "medkits_delivered":
     case "civilians_boarded":
     case "civilians_delivered":
     case "vehicle_repaired":

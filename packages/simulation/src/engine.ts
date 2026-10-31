@@ -8,6 +8,7 @@ import {
   type Frame,
   type MapInfo,
   STRUCTURES,
+  MG_NEST,
   type SquadView,
   type StructureView,
   type VehicleView,
@@ -32,7 +33,7 @@ import { stepMedics } from './systems/medics.ts';
 import { stepMorale } from './systems/morale.ts';
 import { districtCounts, stepDistricts, stepMission } from './systems/mission.ts';
 import { missionView } from './systems/missionView.ts';
-import { siteHeld, siteIncome, stepEconomy } from './systems/economy.ts';
+import { siteHeld, siteIncome, stepEconomy, stepMedicalTent } from './systems/economy.ts';
 import { restoreWorld, snapshotWorld } from './snapshot.ts';
 import { decayNoise } from './systems/noise.ts';
 import { stepUnits } from './systems/units.ts';
@@ -56,6 +57,7 @@ const STEPS: readonly (readonly [string, (w: World) => void])[] = [
   ['resupply', stepResupply],
   ['districts', stepDistricts],
   ['economy', stepEconomy],
+  ['medtent', stepMedicalTent],
   ['mission', stepMission],
   ['noise', decayNoise],
 ];
@@ -252,9 +254,11 @@ export class SimulationEngine {
       pile: w.grid.pile[st.cell],
       ammo: st.ammo ?? -1,
       fired: st.fired ?? 0,
+      belt: MG_NEST.beltRounds - ((st.fired ?? 0) % MG_NEST.beltRounds),
+      reloading: (st.reloadT ?? 0) > 0,
     }));
     const income = siteIncome(w);
-    const bases = w.bases.map((b) => ({ id: b.id, kind: b.kind, name: b.name, role: b.role, control: w.economy ? (b.control ?? 0) : 0, held: w.economy && siteHeld(w, b), soldiers: b.presence?.[0] ?? 0, infected: b.presence?.[1] ?? 0, income: income.get(b.id)!, x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1, materials: b.materials, ammo: b.ammo }));
+    const bases = w.bases.map((b) => ({ id: b.id, kind: b.kind, name: b.name, role: b.role, control: w.economy ? (b.control ?? 0) : 0, held: w.economy && siteHeld(w, b), soldiers: b.presence?.[0] ?? 0, infected: b.presence?.[1] ?? 0, income: income.get(b.id)!, x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1, materials: b.materials, ammo: b.ammo, medkits: b.medkits ?? 0 }));
     const vehicles: VehicleView[] = w.vehicles.map((v) => ({
       id: v.id,
       kind: v.kind,
@@ -266,6 +270,7 @@ export class SimulationEngine {
       maxHp: TRUCK.hp,
       cargoAmmo: v.cargoAmmo,
       cargoMaterials: v.cargoMaterials,
+      cargoMedkits: v.cargoMedkits ?? 0,
       state: v.state,
       policy: v.policy,
       dest: v.dest,
@@ -332,6 +337,7 @@ export class SimulationEngine {
     for (const b of w.bases) {
       h.u32(b.id).u32(b.materials).u32(b.ammo);
       if (b.ammoWarn) h.u32(b.ammoWarn);
+      if (b.medkits !== undefined) h.str('medkits').u32(b.medkits);
     }
     h.bytes(w.districtControl);
     if (w.economy) for (const b of w.bases) h.str('economy').u32(b.control ?? 0);
@@ -345,6 +351,7 @@ export class SimulationEngine {
     } else h.byte(0);
     for (const v of w.vehicles) {
       h.u32(v.id).f64Value(v.x).f64Value(v.y).f64Value(v.hx).f64Value(v.hy).f64Value(v.hp).u32(v.cargoAmmo).u32(v.cargoMaterials);
+      if (v.cargoMedkits) h.str('medkits').u32(v.cargoMedkits);
       h.str(v.state).str(v.policy).u32(v.dest).u32(v.origin).u32(v.pathIdx).u32(v.path.length).u32(v.blockedT).byte(v.rerouted ? 1 : 0).byte(v.blockReported ? 1 : 0).u32(v.passengers);
       for (const p of v.path) h.f64Value(p);
       if (v.escort !== undefined) h.u32(v.escort);
@@ -357,6 +364,7 @@ export class SimulationEngine {
       if (w.climbNext) h.u32(w.climbNext[st.cell]);
       if (st.ammo !== undefined) h.str('ammo').u32(st.ammo);
       if (st.fired !== undefined) h.str('fired').u32(st.fired);
+      if (st.reloadT) h.str('reload').u32(st.reloadT);
     }
     const z = w.zombies;
     h.u32(z.alive).u32(z.highWater);

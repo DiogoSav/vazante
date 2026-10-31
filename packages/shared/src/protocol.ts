@@ -76,6 +76,9 @@ export interface StructureView {
   /** MG nest: rounds in its own box, -1 when it draws on its base stock; rounds fired so far. */
   ammo: number;
   fired: number;
+  /** MG nest: rounds left on the current belt, and whether the crew is changing it. */
+  belt: number;
+  reloading: boolean;
 }
 
 export type VehicleState = 'idle' | 'moving' | 'blocked' | 'destroyed';
@@ -91,6 +94,7 @@ export interface VehicleView {
   maxHp: number;
   cargoAmmo: number;
   cargoMaterials: number;
+  cargoMedkits: number;
   state: VehicleState;
   policy: RiskPolicy;
   /** Destination base id, 0 = none. */
@@ -192,6 +196,8 @@ export interface BaseView {
   y1: number;
   materials: number;
   ammo: number;
+  /** Medical kits in stock: the home base's to use, the hospital's waiting for a truck. */
+  medkits: number;
 }
 
 export interface FrameStats {

@@ -12,12 +12,13 @@ export interface StructureStats {
   readonly materials: number;
   /** Seconds of work with enough builders present. */
   readonly buildTimeS: number;
-  /** Stops sight and bullets (concrete, closed gate). HESCO and nests can be fired over. */
+  /** Stops sight and bullets (concrete, closed gate). Sandbags and nests can be fired over. */
   readonly blocksSight: boolean;
 }
 
 export const STRUCTURES: Readonly<Record<StructureKind, StructureStats>> = {
-  hesco: { hp: 300, height: 2.2, materials: 20, buildTimeS: 15, blocksSight: false },
+  // Sandbags (internal id kept as 'hesco' so saves still load): as low as a machine-gun nest.
+  hesco: { hp: 300, height: 1.2, materials: 20, buildTimeS: 15, blocksSight: false },
   wall: { hp: 600, height: 3.5, materials: 40, buildTimeS: 30, blocksSight: true },
   gate: { hp: 450, height: 3.0, materials: 30, buildTimeS: 25, blocksSight: true },
   mg_nest: { hp: 250, height: 1.2, materials: 35, buildTimeS: 20, blocksSight: false },
@@ -26,7 +27,7 @@ export const STRUCTURES: Readonly<Record<StructureKind, StructureStats>> = {
 
 /** Damage one zombie attack does to a structure. */
 export const ZOMBIE_STRUCTURE_DAMAGE = 1;
-/** Height each stacked zombie adds to the pile at a wall: 14 stacked top a 3.5 m wall, 9 a hesco. */
+/** Height each stacked zombie adds to the pile at a wall: 14 stacked top a 3.5 m wall, 5 the sandbags. */
 export const PILE_UNIT_M = 0.25;
 /** Once a wall is climbable, one zombie at a time gets onto each of its cells, this often (seconds). */
 export const CLIMB_INTERVAL_S = 1;
@@ -42,8 +43,11 @@ export const DEMOLISH_REFUND = 0.5;
 export const MG_NEST = {
   rangeM: 45,
   shotsPerS: 9,
-  accuracy: 0.6,
+  accuracy: 0.45,
   damage: 35,
+  /** Rounds on a belt; when it runs out the nest falls silent for `beltChangeS` while the crew loads the next. */
+  beltRounds: 100,
+  beltChangeS: 6,
   /**
    * A nest outside every base cannot draw on base stock: it fires from its own box, filled to
    * `fieldAmmo` when built, and an idle truck within `refillM` tops it up from its cargo.

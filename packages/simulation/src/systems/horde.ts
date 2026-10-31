@@ -16,9 +16,13 @@ import {
   ZOMBIE_ACCEL,
   ZOMBIE_ATTACK_INTERVAL_S,
   ZOMBIE_ATTACK_RANGE_M,
+  ZOMBIE_CHARGE_SPEED_FACTOR,
   ZOMBIE_MAX_NEIGHBOURS,
   ZOMBIE_MAX_PER_CELL,
+  ZOMBIE_NEST_AGGRO_M,
   ZOMBIE_PERCEPTION_M,
+  ZOMBIE_STUBBORN_M,
+  ZOMBIE_STUBBORN_SHARE,
   ZOMBIE_SEPARATION_M,
   ZOMBIE_STRUCTURE_DAMAGE,
   ZOMBIE_VEHICLE_DAMAGE,
@@ -71,6 +75,8 @@ export function stepHorde(w: World): void {
   const active: Soldier[] = [];
   for (const s of w.soldiers) if (isActiveSoldier(s)) active.push(s);
   computePiles(w);
+  const nests = w.structures.some((st) => st.kind === 'mg_nest' && st.built);
+  const barriers = w.structures.some((st) => st.built && st.kind !== 'command_post');
 
   for (let s = 0; s < z.highWater; s++) {
     if (!z.isAlive(s)) continue;
@@ -87,6 +93,10 @@ export function stepHorde(w: World): void {
     let dy = 0;
     /** Cell the zombie is trying to enter next (for stacking), -1 if none. */
     let ahead = -1;
+    /** A soldier is close enough to steer straight at: it comes before any nest. */
+    let soldierClose = false;
+    /** Rushing a defence (a stubborn charge or a nest): runs ZOMBIE_CHARGE_SPEED_FACTOR faster. */
+    let charging = false;
     let speed = stats.speed;
     if (z.state[s] === ZombieState.Wandering) {
       if (z.wanderT[s] === 0) {
@@ -108,6 +118,7 @@ export function stepHorde(w: World): void {
       const c = g.cellAt(x, y);
       const here = c < 0 ? FLOW_UNREACHABLE : g.flow[c];
       if (target && dist2(x, y, target.x, target.y) < DIRECT_STEER_M * DIRECT_STEER_M) {
+        soldierClose = true;
         unit(target.x - x, target.y - y);
         dx = ux;
         dy = uy;
@@ -179,7 +190,35 @@ export function stepHorde(w: World): void {
           ahead = c + by * g.width + bx;
         }
       }
+      // A defence (sandbags, nest, wall, gate) between this zombie and its soldier: a stubborn share of
+      // the horde charges straight into it, piles up and climbs, instead of following the flow field round.
+      // (Not once on top of a structure: from there the flow field already leads down the far side.)
+      if (barriers && !soldierClose && z.state[s] === ZombieState.Chasing && c >= 0 && g.structure[c] === 0 && stubborn(s)) {
+        const goal = target ?? nearest(active, x, y);
+        if (goal && dist2(x, y, goal.x, goal.y) < ZOMBIE_STUBBORN_M * ZOMBIE_STUBBORN_M && barrierOnLine(w, x, y, goal.x, goal.y)) {
+          unit(goal.x - x, goal.y - y);
+          dx = ux;
+          dy = uy;
+          ahead = g.cellAt(x + dx * STACK_CONTACT_M * 1.25, y + dy * STACK_CONTACT_M * 1.25);
+          charging = true;
+        }
+      }
     }
+
+    // A machine-gun nest close by draws any zombie to itself, firing or not, instead of being walked round or climbed.
+    const nest = nests && !soldierClose ? nestNear(w, x, y) : -1;
+    if (nest >= 0) {
+      if (z.state[s] === ZombieState.Wandering) {
+        z.state[s] = ZombieState.Chasing;
+        speed = stats.speed;
+      }
+      unit(g.cellCenterX(nest) - x, g.cellCenterY(nest) - y);
+      dx = ux;
+      dy = uy;
+      ahead = nest;
+      charging = true;
+    }
+    if (charging) speed *= ZOMBIE_CHARGE_SPEED_FACTOR;
 
     // Stacking: heading into an unclimbed structure and touching it.
     const hereCell = g.cellAt(x, y);
@@ -212,6 +251,19 @@ export function stepHorde(w: World): void {
         z.attackCd[s] = ATTACK_CD_TICKS;
         truck.hp -= ZOMBIE_VEHICLE_DAMAGE;
         w.emit({ type: 'vehicle_hit', source: s, target: truck.id, x: truck.x, y: truck.y });
+      }
+    } else if (nest >= 0 && distToCell(g.width, x, y, nest) <= ZOMBIE_ATTACK_RANGE_M) {
+      // At the nest: beat on it rather than pile up to climb over.
+      z.state[s] = ZombieState.Attacking;
+      z.stack[s] = -1;
+      dx = 0;
+      dy = 0;
+      if (z.attackCd[s] === 0 && !staggered) {
+        const st = w.structure(g.structure[nest]);
+        if (st) {
+          z.attackCd[s] = ATTACK_CD_TICKS;
+          damageStructure(w, st, ZOMBIE_STRUCTURE_DAMAGE);
+        }
       }
     } else if (z.state[s] === ZombieState.Attacking) {
       z.state[s] = ZombieState.Chasing;
@@ -378,6 +430,62 @@ function nearestWithin(list: readonly Soldier[], x: number, y: number, r: number
 }
 
 /** Distance from a point to the nearest edge of a cell's square (0 inside). */
+/** Whether this zombie slot is one of the ZOMBIE_STUBBORN_SHARE that go straight at sandbags and nests (fixed by slot, no RNG). */
+function stubborn(slot: number): boolean {
+  return (Math.imul(slot + 1, 0x9e3779b1) >>> 0) % 100 < ZOMBIE_STUBBORN_SHARE * 100;
+}
+
+/** Sample spacing along a line of sight check, metres. */
+const LINE_STEP_M = 1;
+
+/**
+ * True when the straight line from (x0, y0) to (x1, y1) crosses a built defence (sandbags, nest, wall,
+ * closed gate) and nothing else in the way: no building or water (those still send the horde round).
+ */
+function barrierOnLine(w: World, x0: number, y0: number, x1: number, y1: number): boolean {
+  const g = w.grid;
+  const n = Math.ceil(Math.sqrt(dist2(x0, y0, x1, y1)) / LINE_STEP_M);
+  let last = g.cellAt(x0, y0);
+  let found = false;
+  for (let i = 1; i <= n; i++) {
+    const c = g.cellAt(x0 + ((x1 - x0) * i) / n, y0 + ((y1 - y0) * i) / n);
+    if (c === last || c < 0) continue;
+    last = c;
+    if (g.structure[c] !== 0) {
+      const st = w.structure(g.structure[c]);
+      if (st && st.built && st.kind !== 'command_post' && g.isStructureBlocking(c)) found = true;
+      continue;
+    }
+    if (!g.isWalkable(c)) return false;
+  }
+  return found;
+}
+
+const NEST_SCAN = Math.ceil(ZOMBIE_NEST_AGGRO_M / CELL_SIZE);
+
+/** The closest built machine-gun nest cell within ZOMBIE_NEST_AGGRO_M of (x, y), or -1. Scans the cells around in a fixed order. */
+function nestNear(w: World, x: number, y: number): number {
+  const g = w.grid;
+  const qx = Math.floor(x / CELL_SIZE);
+  const qy = Math.floor(y / CELL_SIZE);
+  let best = -1;
+  let bd = ZOMBIE_NEST_AGGRO_M;
+  for (let yy = Math.max(0, qy - NEST_SCAN); yy <= Math.min(g.height - 1, qy + NEST_SCAN); yy++) {
+    for (let xx = Math.max(0, qx - NEST_SCAN); xx <= Math.min(g.width - 1, qx + NEST_SCAN); xx++) {
+      const c = yy * g.width + xx;
+      if (g.structure[c] === 0) continue;
+      const st = w.structure(g.structure[c]);
+      if (!st || st.kind !== 'mg_nest' || !st.built) continue;
+      const d = distToCell(g.width, x, y, c);
+      if (d < bd) {
+        bd = d;
+        best = c;
+      }
+    }
+  }
+  return best;
+}
+
 function distToCell(width: number, x: number, y: number, cell: number): number {
   const cx = (cell % width) * CELL_SIZE;
   const cy = Math.floor(cell / width) * CELL_SIZE;

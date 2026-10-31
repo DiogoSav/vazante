@@ -68,10 +68,10 @@ Implemented in v0.1 (values in code). HP counts zombie attacks (1 per attack, 1 
 
 | Structure | Cells | Height (m) | HP | Materials | Build time (s) | Effect |
 | --- | --- | --- | --- | --- | --- | --- |
-| HESCO barrier | 1 × 1 | 2.2 | 300 | 20 | 15 | blocks movement, not sight; climbable with pile 5 |
-| Concrete wall | 1 × 1 | 3.5 | 600 | 40 | 30 | blocks movement and sight; climbable with pile 7 |
-| Gate | 1 × 1 | 3.0 | 450 | 30 | 25 | open/close (G); closed blocks movement and sight |
-| MG nest | 1 × 1 | 1.2 | 250 | 35 | 20 | crewed: 9 shots/s, 45 m, 60% base accuracy, 35 dmg, fires over walls, uses base ammo |
+| Sandbags (id `hesco`) | 1 × 1 | 1.2 | 300 | 20 | 15 | blocks movement, not sight; climbable with pile 5 |
+| Concrete wall | 1 × 1 | 3.5 | 600 | 40 | 30 | blocks movement and sight; climbable with pile 14 |
+| Gate | 1 × 1 | 3.0 | 450 | 30 | 25 | open/close (G); closed blocks movement and sight; climbable with pile 12 |
+| MG nest | 1 × 1 | 1.2 | 250 | 35 | 20 | crewed: 9 shots/s, 45 m, 45% base accuracy, 35 dmg, 100-round belts with a 6 s change, fires over walls, uses base ammo; any zombie within 8 m with no soldier closer goes for it, firing or not, and beat on it instead of climbing it |
 
 Planned (not implemented yet):
 
@@ -185,6 +185,12 @@ downtown, NE (depot) industrial, SW (base) houses, SE mixed.
 | 2026-10-29 | strategic point area | site rectangle + 40 m → circle reaching 40 m past the longer side (r 76 m depot, 88 m base) | the area is drawn on the ground and the minimap as a circle; in economy modes districts no longer raise alerts or count as a goal |
 | 2026-10-29 | truck wreck | destroyed truck removed, mission lost → wreck keeps its cargo; 3 engineers repair it in 40 s to 50 % HP; the mission fails only if civilians aboard die or no engineer is left (and no held station) | losing the only truck ended the game with no way back |
 | 2026-10-29 | engineer repairs | — → 3 HP/s per engineer, 3 at most, on any damaged structure | engineers get a role of their own beyond building |
+| 2026-10-30 | medical kits | — → MEDKITS: home base starts with 5; a secured hospital makes 10 a game day into its own stock (a truck carries up to 50 to the base) and no longer makes materials; in the base medical tent one kit fully heals one soldier and cures a bite (used at once on the bitten, and below 60% health). The hospital still heals and cures for free inside it. The Hospital São Lucas site is now one whole city block with its sidewalk ring (blocks of 10+ cells), its building across the back of the block | Diogo wanted the hospital to matter: a stock of cures to manage, refilled only by holding the hospital |
+| 2026-10-30 | charge at walls | the stubborn share also charges walls and closed gates (any built defence in the way, not only sandbags and nests); a zombie charging a defence or going for a nest runs ZOMBIE_CHARGE_SPEED_FACTOR 1.25 faster | Diogo saw the horde file round open-ended walls without any frenzy. Siege test (200 commons on a full wall): one nest now holds ~51 s (was 120 s+), two nests hold 120 s, so a stretch of wall needs two nests; the test now asserts that |
+| 2026-10-30 | stubborn horde | every zombie followed the flow field round sandbag lines and nests → ZOMBIE_STUBBORN_SHARE 0.6 (by slot) within ZOMBIE_STUBBORN_M 60 of its soldier keep straight on when only sandbags or a nest stand in the way, pile up and climb; walls, gates and buildings still send all round. Nests draw zombies within 8 m whether firing or not | Diogo saw the horde file round sandbags it could simply climb, and leave silent nests alone |
+| 2026-10-30 | MG nest fire | accuracy 0.6 → 0.45; endless fire → 100-round belts, 6 s silent to change each | one nest killed ~5 commons a second without pause; now ~4 a second while firing and ~2.6 on average over a belt cycle. The wall-and-nest test still holds 120 s |
+| 2026-10-30 | zombies and MG nests | nests walked round (flow penalty) or climbed with a pile of 5 → ZOMBIE_NEST_AGGRO_M 8: a chasing zombie with no soldier within 8 m goes for a nest within 8 m and hits it 1 HP/s | Diogo saw the horde ignore the nests; the wall-and-nest test still holds 120 s |
+| 2026-10-30 | HESCO → sandbags | name HESCO → Sandbags / Saco de areia, height 2.2 → 1.2 m (pile 9 → 5, as low as an MG nest); HP and cost unchanged | a low sandbag line the squads fire over, not a tall barrier |
 | 2026-10-30 | survival city | 512 cells (2 km), 4000 infected, cap 4000, clear 300 m, refill edge 250 m → 384 cells (1.5 km), 2250, cap 2250, clear 225 m, refill edge 190 m; site distances and gaps scale with the city | the 2 km city felt too big for survival; same density of infected on a smaller map |
 | 2026-10-30 | building heights and lots | height by distance to the map centre, lots 3–7 everywhere → land use per district (table above) | districts read as downtown, houses and industry; the Depósito Norte stands in the industrial one |
 | 2026-10-30 | time scale | 1x/2x/4x → 1.25x/2.5x/5x | every speed step 25 % faster; host pacing only, the simulation and hashes are unchanged |

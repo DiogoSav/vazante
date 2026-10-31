@@ -35,6 +35,20 @@ export const BLOATER = { radiusM: 4.5, soldierDamage: 45, zombieDamage: 120, str
 
 export const ZOMBIE_PERCEPTION_M = 25;
 export const ZOMBIE_ATTACK_RANGE_M = 1.2;
+/**
+ * A chasing zombie with no soldier this close goes for a machine-gun nest this close instead of
+ * walking round it or climbing it, and hits it (ZOMBIE_STRUCTURE_DAMAGE a blow) once in reach.
+ */
+export const ZOMBIE_NEST_AGGRO_M = 8;
+/**
+ * Share of the horde that, within ZOMBIE_STUBBORN_M of its soldier, charges straight into a defence in
+ * the way (sandbags, nest, wall, closed gate), piling up and climbing, instead of following the flow
+ * field round it. Buildings and water in the way still send every zombie round.
+ */
+export const ZOMBIE_STUBBORN_SHARE = 0.6;
+export const ZOMBIE_STUBBORN_M = 60;
+/** Speed multiplier while charging a defence (a stubborn charge or going for a nest). */
+export const ZOMBIE_CHARGE_SPEED_FACTOR = 1.25;
 export const ZOMBIE_ATTACK_INTERVAL_S = 1.0;
 export const ZOMBIE_RADIUS_M = 0.3;
 export const ZOMBIE_SEPARATION_M = 0.6;

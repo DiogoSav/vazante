@@ -20,7 +20,7 @@ export enum Blocked {
   GateClosed = 2,
   Rubble = 4,
   Wreck = 8,
-  /** Low structure (HESCO, nest): blocks movement, not sight. */
+  /** Low structure (sandbags, nest): blocks movement, not sight. */
   Barrier = 16,
 }
 
@@ -66,7 +66,7 @@ export type SquadOrder =
 export type DistrictZone = 'downtown' | 'mixed' | 'residential' | 'industrial';
 
 /** How a building is drawn. The simulation only uses its footprint and height. */
-export type BuildingStyle = 'tower' | 'block' | 'house' | 'warehouse';
+export type BuildingStyle = 'tower' | 'block' | 'house' | 'warehouse' | 'hospital';
 
 export interface BuildingRect {
   id: number;
