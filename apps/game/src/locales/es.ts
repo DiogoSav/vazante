@@ -376,6 +376,8 @@ export const es: Record<Key, string> = {
   "struct.ammoOwn": "Caja de munición propia: {n}/{max}",
   "struct.ammoBase": "Toma munición de {s}: {n}",
   "struct.fired": "Disparó {n} balas (~{s} s de fuego)",
+  "struct.belt": "Cinta {n}/{max}",
+  "struct.beltChange": "Cambiando la cinta…",
   "struct.refillHint": "Un camión parado a su lado recarga la caja.",
   "struct.dismantle": "Desmontar",
   "struct.dismantleHint": "Lo desmonta y devuelve la mitad de los materiales.",

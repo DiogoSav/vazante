@@ -76,6 +76,9 @@ export interface StructureView {
   /** MG nest: rounds in its own box, -1 when it draws on its base stock; rounds fired so far. */
   ammo: number;
   fired: number;
+  /** MG nest: rounds left on the current belt, and whether the crew is changing it. */
+  belt: number;
+  reloading: boolean;
 }
 
 export type VehicleState = 'idle' | 'moving' | 'blocked' | 'destroyed';

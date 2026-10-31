@@ -8,6 +8,7 @@ import {
   type Frame,
   type MapInfo,
   STRUCTURES,
+  MG_NEST,
   type SquadView,
   type StructureView,
   type VehicleView,
@@ -252,6 +253,8 @@ export class SimulationEngine {
       pile: w.grid.pile[st.cell],
       ammo: st.ammo ?? -1,
       fired: st.fired ?? 0,
+      belt: MG_NEST.beltRounds - ((st.fired ?? 0) % MG_NEST.beltRounds),
+      reloading: (st.reloadT ?? 0) > 0,
     }));
     const income = siteIncome(w);
     const bases = w.bases.map((b) => ({ id: b.id, kind: b.kind, name: b.name, role: b.role, control: w.economy ? (b.control ?? 0) : 0, held: w.economy && siteHeld(w, b), soldiers: b.presence?.[0] ?? 0, infected: b.presence?.[1] ?? 0, income: income.get(b.id)!, x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1, materials: b.materials, ammo: b.ammo }));
@@ -357,6 +360,7 @@ export class SimulationEngine {
       if (w.climbNext) h.u32(w.climbNext[st.cell]);
       if (st.ammo !== undefined) h.str('ammo').u32(st.ammo);
       if (st.fired !== undefined) h.str('fired').u32(st.fired);
+      if (st.reloadT) h.str('reload').u32(st.reloadT);
     }
     const z = w.zombies;
     h.u32(z.alive).u32(z.highWater);

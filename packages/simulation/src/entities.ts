@@ -108,8 +108,10 @@ export interface Structure {
   fireAcc: number;
   /** MG nest outside every base: rounds in its own box (absent: it draws on its base). */
   ammo?: number;
-  /** MG nest: rounds fired since it was built. */
+  /** MG nest: rounds fired since it was built (a belt ends every MG_NEST.beltRounds). */
   fired?: number;
+  /** MG nest: ticks left changing the belt; it does not fire meanwhile. */
+  reloadT?: number;
 }
 
 export interface Base {

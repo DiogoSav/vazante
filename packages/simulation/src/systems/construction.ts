@@ -365,6 +365,11 @@ export function stepEmplacements(w: World): void {
     // A field nest fires from its own box, the others from their base stock.
     const box = st.ammo !== undefined ? st : w.bases[st.base];
     if (!box || box.ammo! <= 0) continue;
+    if (st.reloadT) {
+      st.reloadT--;
+      st.fireAcc = 0;
+      continue;
+    }
     if (st.target >= 0) {
       const t = st.target;
       const dx = z.x[t] - x;
@@ -406,6 +411,12 @@ export function stepEmplacements(w: World): void {
         }
       }
       w.emit({ type: 'shot', source: 0, x, y, x2: tx, y2: ty, value: hit ? 1 : 0, reason: 'lmg' });
+      // End of the belt: the crew loads the next one.
+      if ((st.fired ?? 0) % MG_NEST.beltRounds === 0) {
+        st.reloadT = Math.round(MG_NEST.beltChangeS * TICK_HZ);
+        st.fireAcc = 0;
+        break;
+      }
     }
     w.grid.stampNoise(x, y, NOISE_SHOT, NOISE_SHOT_RADIUS_M);
   }

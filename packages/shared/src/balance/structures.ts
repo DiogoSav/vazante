@@ -43,8 +43,11 @@ export const DEMOLISH_REFUND = 0.5;
 export const MG_NEST = {
   rangeM: 45,
   shotsPerS: 9,
-  accuracy: 0.6,
+  accuracy: 0.45,
   damage: 35,
+  /** Rounds on a belt; when it runs out the nest falls silent for `beltChangeS` while the crew loads the next. */
+  beltRounds: 100,
+  beltChangeS: 6,
   /**
    * A nest outside every base cannot draw on base stock: it fires from its own box, filled to
    * `fieldAmmo` when built, and an idle truck within `refillM` tops it up from its cargo.

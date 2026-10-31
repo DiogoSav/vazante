@@ -1425,6 +1425,9 @@ function StructurePanel({
               ? t("struct.ammoOwn").replace("{n}", String(st.ammo)).replace("{max}", String(MG_NEST.fieldAmmo))
               : t("struct.ammoBase").replace("{s}", base?.name ?? "").replace("{n}", String(base?.ammo ?? 0))}
           </span>
+          <span className={st.reloading ? "warn" : ""}>
+            {st.reloading ? t("struct.beltChange") : t("struct.belt").replace("{n}", String(st.belt)).replace("{max}", String(MG_NEST.beltRounds))}
+          </span>
           <span className="muted">
             {t("struct.fired").replace("{n}", String(st.fired)).replace("{s}", String(Math.round(st.fired / MG_NEST.shotsPerS)))}
           </span>

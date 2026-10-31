@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Blocked, CELL_SIZE, CLIMB_INTERVAL_S, TICK_HZ, Ground, SoldierCondition, STRUCTURES, STRUCTURE_KINDS, ZombieKind, ZombieState, checkPlacement, type StructureKind } from '@vazante/shared';
+import { Blocked, CELL_SIZE, CLIMB_INTERVAL_S, MG_NEST, TICK_HZ, Ground, SoldierCondition, STRUCTURES, STRUCTURE_KINDS, ZombieKind, ZombieState, ZOMBIE_STUBBORN_SHARE, checkPlacement, type StructureKind } from '@vazante/shared';
 import { buildTicks, placementContext, type SimulationEngine } from '../src/index.ts';
 import { addSquad, disarm, fieldEngine, soldiersOf } from './helpers.ts';
 
@@ -169,13 +169,14 @@ describe('construction', () => {
 
 describe('wall stacking', () => {
   /** 200 zombies attack a full-width concrete wall that protects an unarmed squad. */
-  function siege(withNest: boolean): { engine: SimulationEngine; crossedAt: number } {
+  function siege(nests: 0 | 1 | 2): { engine: SimulationEngine; crossedAt: number } {
     const e = withBase(64);
     const w = e.world;
     const q = addSquad(e, 'slice', c(44), c(32));
     for (const s of w.soldiers) disarm(s);
     for (let y = 0; y < 64; y++) build(e, 'wall', 32, y);
-    if (withNest) build(e, 'mg_nest', 36, 32);
+    if (nests >= 1) build(e, 'mg_nest', 36, 32);
+    if (nests >= 2) build(e, 'mg_nest', 36, 26);
     e.tick();
     finishAll(e);
     const victim = soldiersOf(e, q.id)[0].id;
@@ -203,13 +204,13 @@ describe('wall stacking', () => {
   }
 
   it('an undefended 3.5 m wall is crossed within 60 s', () => {
-    const { crossedAt } = siege(false);
+    const { crossedAt } = siege(0);
     expect(crossedAt).toBeGreaterThanOrEqual(0);
     expect(crossedAt).toBeLessThan(600);
   });
 
   it('zombies get onto a climbable wall cell at most once per CLIMB_INTERVAL_S', () => {
-    const { engine } = siege(false);
+    const { engine } = siege(0);
     const w = engine.world;
     const z = w.zombies;
     const prev = new Int32Array(z.highWater).fill(-1);
@@ -232,8 +233,15 @@ describe('wall stacking', () => {
     }
   });
 
-  it('with an active MG nest the wall holds for 120 s', () => {
-    const { engine, crossedAt } = siege(true);
+  it('one MG nest slows the horde at the wall but does not hold it on its own', () => {
+    const undefended = siege(0).crossedAt;
+    const { engine, crossedAt } = siege(1);
+    expect(crossedAt).toBeGreaterThan(undefended);
+    expect(engine.world.stats.zombiesKilled).toBeGreaterThan(50);
+  });
+
+  it('with two active MG nests the wall holds for 120 s', () => {
+    const { engine, crossedAt } = siege(2);
     expect(crossedAt).toBe(-1);
     expect(engine.world.stats.zombiesKilled).toBeGreaterThan(100);
   });
@@ -268,6 +276,104 @@ describe('horde routing', () => {
       }
     }
     expect(farGap.size).toBeGreaterThan(10);
+  });
+});
+
+describe('machine-gun nests draw the horde', () => {
+  it('chasing zombies that pass close to a nest stop and beat on it instead of walking round it', () => {
+    // No ammunition in the base, so the nest cannot fire and the zombies live to reach it.
+    const e = withBase(64, 100_000, 0);
+    const w = e.world;
+    const q = addSquad(e, 'slice', c(52), c(52));
+    for (const sol of soldiersOf(e, q.id)) disarm(sol);
+    build(e, 'mg_nest', 20, 20);
+    e.tick();
+    finishAll(e);
+    const nest = w.structures.find((s) => s.kind === 'mg_nest')!;
+    expect(nest.built).toBe(true);
+    const victim = soldiersOf(e, q.id)[0].id;
+    // Four zombies passing within 6 m of the nest on their way to the squad, two well clear of it.
+    const near: number[] = [];
+    for (let k = 0; k < 6; k++) {
+      const s = w.zombies.spawn(c(k < 4 ? 19 + k : 30 + k), c(22), ZombieKind.Common, ZombieState.Chasing);
+      w.zombies.target[s] = victim;
+      if (k < 4) near.push(s);
+    }
+    e.runTicks(30 * TICK_HZ);
+    expect(nest.hp).toBeLessThan(STRUCTURES.mg_nest.hp - 60);
+    expect(near.filter((s) => w.zombies.state[s] === ZombieState.Attacking).length).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('machine-gun nests draw the horde even when silent', () => {
+  it('wandering zombies next to a nest that is not firing still go for it', () => {
+    const e = withBase(64, 100_000, 0);
+    const w = e.world;
+    build(e, 'mg_nest', 20, 20);
+    e.tick();
+    finishAll(e);
+    const nest = w.structures.find((s) => s.kind === 'mg_nest')!;
+    for (let k = 0; k < 4; k++) w.zombies.spawn(c(19 + k), c(22), ZombieKind.Common, ZombieState.Wandering);
+    e.runTicks(30 * TICK_HZ);
+    expect(nest.fired ?? 0, 'the nest never fired').toBe(0);
+    expect(nest.hp).toBeLessThan(STRUCTURES.mg_nest.hp - 60);
+  });
+});
+
+describe('stubborn zombies and open defence lines', () => {
+  it.each(['hesco', 'wall'] as const)('about ZOMBIE_STUBBORN_SHARE of the horde piles into a %s line instead of going round its open ends', (kind) => {
+    // A line across the field with open ends, the squad (unarmed, no base ammo) behind it, the horde in front.
+    const e = withBase(64, 100_000, 0);
+    const w = e.world;
+    for (let x = 6; x <= 44; x++) build(e, kind, x, 30);
+    e.tick();
+    finishAll(e);
+    const q = addSquad(e, 'slice', c(25), c(36));
+    for (const sol of soldiersOf(e, q.id)) disarm(sol);
+    const victim = soldiersOf(e, q.id)[0].id;
+    const horde: number[] = [];
+    for (let k = 0; k < 40; k++) {
+      const s = w.zombies.spawn(c(16 + (k % 20)), c(20 + Math.floor(k / 20)), ZombieKind.Common, ZombieState.Chasing);
+      w.zombies.target[s] = victim;
+      horde.push(s);
+    }
+    const piled = new Set<number>();
+    for (let t = 0; t < 40 * TICK_HZ; t++) {
+      for (const sol of w.soldiers) sol.hp = 1000;
+      e.tick();
+      for (const s of horde) {
+        if (!w.zombies.isAlive(s)) continue;
+        const st = w.zombies.state[s];
+        const cell = st === ZombieState.Stacked ? w.zombies.stack[s] : w.grid.cellAt(w.zombies.x[s], w.zombies.y[s]);
+        const sid = cell >= 0 ? w.grid.structure[cell] : 0;
+        if (sid !== 0 && w.structure(sid)?.kind === kind) piled.add(s);
+      }
+    }
+    const share = piled.size / horde.length;
+    expect(share).toBeGreaterThan(ZOMBIE_STUBBORN_SHARE - 0.2);
+    expect(share).toBeLessThan(ZOMBIE_STUBBORN_SHARE + 0.25);
+  });
+});
+
+describe('machine-gun nest belts', () => {
+  it('falls silent for MG_NEST.beltChangeS after every belt of MG_NEST.beltRounds, then fires again', () => {
+    const e = withBase(64);
+    const w = e.world;
+    build(e, 'mg_nest', 32, 32);
+    e.tick();
+    finishAll(e);
+    const nest = w.structures.find((s) => s.kind === 'mg_nest')!;
+    // A crowd well inside its range, more than one belt can kill.
+    for (let k = 0; k < 300; k++) w.zombies.spawn(c(18 + (k % 30)), c(22 + Math.floor(k / 30)), ZombieKind.Brute, ZombieState.Wandering);
+    let t = 0;
+    while ((nest.fired ?? 0) < MG_NEST.beltRounds && t++ < 60 * TICK_HZ) e.tick();
+    expect(nest.fired).toBe(MG_NEST.beltRounds);
+    const change = Math.round(MG_NEST.beltChangeS * TICK_HZ);
+    e.runTicks(change - 1);
+    expect(nest.fired, 'silent while the belt is changed').toBe(MG_NEST.beltRounds);
+    expect(e.frame(false).structures.find((s) => s.id === nest.id)!.reloading).toBe(true);
+    e.runTicks(TICK_HZ);
+    expect(nest.fired!).toBeGreaterThan(MG_NEST.beltRounds);
   });
 });
 
