@@ -152,6 +152,45 @@ function buildLots(rng: Rng, grid: Grid, block: Rect, zone: DistrictZone, buildi
   });
 }
 
+/** Cells deep (at most) and floors of the Hospital São Lucas building. */
+const HOSPITAL_DEPTH = 5;
+const HOSPITAL_FLOORS = 5;
+/** Smallest block side (cells) the hospital takes: room for the building and a yard in front of it. */
+const HOSPITAL_MIN_BLOCK = 10;
+
+/**
+ * The hospital site for the city block holding cell (x, y): the block and the sidewalk ring round it
+ * (so trucks can cross from the street into the yard), if the block is big enough for the hospital.
+ */
+function blockAround(xs: Array<[number, number]>, ys: Array<[number, number]>, x: number, y: number): Rect | null {
+  const bx = xs.find(([a, b]) => x >= a && x <= b);
+  const by = ys.find(([a, b]) => y >= a && y <= b);
+  if (!bx || !by || bx[1] - bx[0] + 1 < HOSPITAL_MIN_BLOCK || by[1] - by[0] + 1 < HOSPITAL_MIN_BLOCK) return null;
+  return { x0: bx[0] - 1, y0: by[0] - 1, x1: bx[1] + 1, y1: by[1] + 1 };
+}
+
+/**
+ * The Hospital São Lucas: a building across the back (south) of its block, two cells in from each
+ * side, at most 40% of the block deep, leaving the front and both flanks free for soldiers to heal
+ * in and trucks to park. The site's outer ring is the sidewalk and stays clear.
+ */
+function addHospital(grid: Grid, site: Rect, buildings: BuildingRect[]): void {
+  const block: Rect = { x0: site.x0 + 1, y0: site.y0 + 1, x1: site.x1 - 1, y1: site.y1 - 1 };
+  const depth = Math.min(HOSPITAL_DEPTH, Math.floor((block.y1 - block.y0 + 1) * 0.4));
+  const lot: Rect = { x0: block.x0 + 2, y0: block.y1 - depth + 1, x1: block.x1 - 2, y1: block.y1 };
+  const id = buildings.length + 1;
+  const h = HOSPITAL_FLOORS * 3;
+  buildings.push({ id, ...lot, height: h, style: 'hospital' });
+  for (let y = lot.y0; y <= lot.y1; y++) {
+    for (let x = lot.x0; x <= lot.x1; x++) {
+      const i = grid.idx(x, y);
+      grid.ground[i] = Ground.Building;
+      grid.buildingId[i] = id;
+      grid.heights[i] = h;
+    }
+  }
+}
+
 function overlaps(a: Rect, b: Rect): boolean {
   return a.x0 <= b.x1 && b.x0 <= a.x1 && a.y0 <= b.y1 && b.y0 <= a.y1;
 }
@@ -260,18 +299,27 @@ export function generateCityMap(seed: number, size = 512): GeneratedMap {
     }
   }
   const roles = [['Depósito Norte', 'supply'], ['Hospital São Lucas', 'hospital'], ['Estação Ferroviária', 'station']] as const;
+  // The hospital is a whole city block, so its building never sits on a street.
+  const xs = blockRuns(isStreetX, size);
+  const ys = blockRuns(isStreetY, size);
+  const fit = (role: SiteRole, r: Rect): Rect | null => {
+    if (role !== 'hospital') return r;
+    const block = blockAround(xs, ys, (r.x0 + r.x1) >> 1, (r.y0 + r.y1) >> 1);
+    return block && dry(block) ? block : null;
+  };
   // Try the full spacing first, then a little looser; a seed where nothing fits gets the old fixed layout.
   let depots: Array<[string, SiteRole, Rect]> | null = null;
   const scale = size / CITY_FULL;
   for (const gap of SITE_GAP) {
-    depots = placeSites(rng, size, scale, roles, base, gap * scale, districtOf, dry);
+    depots = placeSites(rng, size, scale, roles, base, gap * scale, districtOf, dry, fit);
     if (depots) break;
   }
   if (!depots) {
     base = { x0: midX - 12, y0: size - 70, x1: midX + 11, y1: size - 47 };
+    const hospital: Rect = { x0: 14, y0: 60, x1: 31, y1: 77 };
     depots = [
       ['Depósito Norte', 'supply', { x0: size - 60, y0: 10, x1: size - 43, y1: 27 }],
-      ['Hospital São Lucas', 'hospital', { x0: 14, y0: 60, x1: 31, y1: 77 }],
+      ['Hospital São Lucas', 'hospital', blockAround(xs, ys, 22, 68) ?? hospital],
       ['Estação Ferroviária', 'station', { x0: size - 90, y0: Math.floor(size * 0.55), x1: size - 73, y1: Math.floor(size * 0.55) + 17 }],
     ];
   }
@@ -286,8 +334,6 @@ export function generateCityMap(seed: number, size = 512): GeneratedMap {
   }
 
   const zones = cityZones(depots, districtOf);
-  const xs = blockRuns(isStreetX, size);
-  const ys = blockRuns(isStreetY, size);
   const buildings: BuildingRect[] = [];
   for (const [by0, by1] of ys) {
     for (const [bx0, bx1] of xs) {
@@ -301,6 +347,9 @@ export function generateCityMap(seed: number, size = 512): GeneratedMap {
       buildLots(rng, grid, block, zone, buildings);
     }
   }
+
+  const hospital = depots.find(([, role]) => role === 'hospital');
+  if (hospital) addHospital(grid, hospital[2], buildings);
 
   const districts: DistrictInfo[] = [];
   for (let row = 0; row < 2; row++) {
@@ -343,6 +392,8 @@ function placeSites(
   gap: number,
   districtOf: (x: number, y: number) => number,
   dry: (r: Rect) => boolean,
+  /** Turns a candidate rectangle into the site's actual one (the hospital snaps to its block), or null to reject it. */
+  fit: (role: SiteRole, r: Rect) => Rect | null,
 ): Array<[string, SiteRole, Rect]> | null {
   const bcx = (base.x0 + base.x1) / 2;
   const bcy = (base.y0 + base.y1) / 2;
@@ -355,9 +406,10 @@ function placeSites(
     for (let i = 0; i < 2000 && !pick; i++) {
       const x0 = rng.int(8, size - 26);
       const y0 = rng.int(8, size - 100);
-      const r = { x0, y0, x1: x0 + 17, y1: y0 + 17 };
-      const dx = x0 + 8.5 - bcx;
-      const dy = y0 + 8.5 - bcy;
+      const r = fit(role, { x0, y0, x1: x0 + 17, y1: y0 + 17 });
+      if (!r) continue;
+      const dx = (r.x0 + r.x1) / 2 - bcx;
+      const dy = (r.y0 + r.y1) / 2 - bcy;
       const d2 = dx * dx + dy * dy;
       if (d2 < near * near || d2 > far * far || used.includes(districtOf(bcx + dx, bcy + dy)) || !dry(r)) continue;
       const clash = out.some(([, , o]) => {

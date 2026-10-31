@@ -15,6 +15,8 @@ export const TRUCK = {
   speed: 7,
   capacityAmmo: 6000,
   capacityMaterials: 400,
+  /** Medical kits a truck carries (they are small: a whole hospital stock fits). */
+  capacityMedkits: 50,
   /** The road counts as blocked when this many zombies are within `blockRadiusM` ahead. */
   blockCount: 4,
   blockRadiusM: 3,

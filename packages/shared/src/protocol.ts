@@ -94,6 +94,7 @@ export interface VehicleView {
   maxHp: number;
   cargoAmmo: number;
   cargoMaterials: number;
+  cargoMedkits: number;
   state: VehicleState;
   policy: RiskPolicy;
   /** Destination base id, 0 = none. */
@@ -195,6 +196,8 @@ export interface BaseView {
   y1: number;
   materials: number;
   ammo: number;
+  /** Medical kits in stock: the home base's to use, the hospital's waiting for a truck. */
+  medkits: number;
 }
 
 export interface FrameStats {

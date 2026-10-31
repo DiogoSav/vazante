@@ -1,5 +1,5 @@
 import { Rng } from '@vazante/kernel';
-import { type DifficultyId, BASE_START, Blocked, CELL_SIZE, SoldierCondition, ZOMBIES, type BuildingRect, type DistrictInfo, type SimEvent, type SimSpeed, type SiteInfo, type DayClock } from '@vazante/shared';
+import { type DifficultyId, BASE_START, MEDKITS, Blocked, CELL_SIZE, SoldierCondition, ZOMBIES, type BuildingRect, type DistrictInfo, type SimEvent, type SimSpeed, type SiteInfo, type DayClock } from '@vazante/shared';
 import type { Base, Mission, Soldier, Squad, Structure, Vehicle } from './entities.ts';
 import type { Grid } from './grid.ts';
 import { FlowJob } from './navigation.ts';
@@ -83,6 +83,7 @@ export class World {
 
   addBase(name: string, x0: number, y0: number, x1: number, y1: number, materials: number = BASE_START.materials, ammo: number = BASE_START.ammo, kind: Base['kind'] = 'base'): Base {
     const b: Base = { id: this.bases.length + 1, kind, buildable: kind === 'base', name, x0, y0, x1, y1, materials, ammo };
+    if (kind === 'base' && !this.bases.some((o) => o.kind === 'base')) b.medkits = MEDKITS.start;
     this.bases.push(b);
     return b;
   }

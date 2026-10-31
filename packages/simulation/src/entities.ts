@@ -133,6 +133,8 @@ export interface Base {
   y1: number;
   materials: number;
   ammo: number;
+  /** Medical kits in stock: the home base's to use, the hospital's waiting for a truck (absent: none). */
+  medkits?: number;
 }
 
 export interface Vehicle {
@@ -145,6 +147,8 @@ export interface Vehicle {
   hp: number;
   cargoAmmo: number;
   cargoMaterials: number;
+  /** Medical kits aboard (absent in saves from before kits: none). */
+  cargoMedkits?: number;
   state: VehicleState;
   policy: RiskPolicy;
   /** Destination and origin base ids (0 = none). */

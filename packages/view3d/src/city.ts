@@ -55,6 +55,8 @@ const DAMAGE_SHARE: ReadonlyArray<readonly [BuildingDamage, number]> = [
 
 /** Stable per building and city seed, so the renderer's fires land on the buildings drawn as burning. */
 export function buildingDamage(b: BuildingRect, seed: number): BuildingDamage {
+  // The hospital stands: the player has to recognise it.
+  if (b.style === 'hospital') return 'none';
   let r = hash(b.id * 2246822519 + seed * 7919) % 1000;
   for (const [damage, share] of DAMAGE_SHARE) {
     if (r < share) return damage;
@@ -79,6 +81,7 @@ function buildBuildings(map: MapInfo): THREE.Group {
   const barrels: Part[] = [];
   const sheets: Part[] = [];
   const rubble: Part[] = [];
+  const crosses: Part[] = [];
   const pick = (list: readonly number[], h: number) => new THREE.Color(list[h % list.length]).multiplyScalar(0.9 + (hash(h * 7) % 20) / 100);
   const pos = new THREE.Vector3();
   const scale = new THREE.Vector3();
@@ -134,6 +137,21 @@ function buildBuildings(map: MapInfo): THREE.Group {
       rubble.push([part(x, mound / 2, z, w * 0.9, mound, d * 0.9), tone.clone().lerp(concrete, 0.6).multiplyScalar(0.6)]);
       scatter(h, x, mound, z, w + 2, d + 2, 6 + Math.round((w * d) / 30), 1.6, tone);
       stumps(h, kind, x, 0, z, w, d, 2 + (h % 3), Math.min(b.height, 8), tone);
+      continue;
+    }
+
+    if (b.style === 'hospital') {
+      // White plaster block, a red cross on the roof and over the entrance, and a canopy at the door.
+      // The entrance faces north (-z), towards the open front of the site.
+      const white = new THREE.Color(PALETTE.hospital);
+      walls.block.push([part(x, 0, z, w, b.height, d), white]);
+      walls.block.push([part(x, 0, z - d / 2 - 1.6, Math.min(12, w * 0.3), 0.5, 3.2), white.clone().multiplyScalar(0.92)]);
+      walls.block.push([part(x, 3.1, z - d / 2 - 1.6, Math.min(12, w * 0.3), 0.4, 3.4), white]);
+      const arm = Math.min(w, d) * 0.7;
+      const red = new THREE.Color(PALETTE.redCross);
+      crosses.push([part(x, b.height, z, arm, 0.15, arm / 3.2), red], [part(x, b.height, z, arm / 3.2, 0.15, arm), red]);
+      const fy = b.height - 4.5;
+      crosses.push([part(x, fy, z - d / 2 - 0.06, 3.6, 1.15, 0.1), red], [part(x, fy - 1.25, z - d / 2 - 0.06, 1.15, 3.6, 0.1), red]);
       continue;
     }
 
@@ -204,6 +222,7 @@ function buildBuildings(map: MapInfo): THREE.Group {
   }
   const chunk = new THREE.BoxGeometry(1, 1, 1);
   add(chunk, toon(), rubble, 'rubble');
+  add(box, toon(), crosses, 'red_cross');
   add(gable, toon(), tiles, 'roofs');
   add(gable, toon(), sheets, 'roofs');
   add(barrel, toon(), barrels, 'roofs');

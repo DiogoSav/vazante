@@ -386,10 +386,10 @@ export class InputController {
     this.feedback("stance");
   }
 
-  loadVehicle(ammo: number, materials: number): void {
+  loadVehicle(ammo: number, materials: number, medkits = 0): void {
     const v = this.client.state.vehicle;
     if (v === null) return;
-    this.client.send({ type: "load", vehicle: v, ammo, materials });
+    this.client.send({ type: "load", vehicle: v, ammo, materials, medkits });
     this.feedback("order");
   }
 

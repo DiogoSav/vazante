@@ -143,6 +143,9 @@ export function placeProps(map: MapInfo): Record<PropName, Placement[]> {
       out.Container_Long.push({ x: x0 + 5, y: y0 + 7, yaw: Math.PI / 2 }, { x: x0 + 9, y: y0 + 7, yaw: Math.PI / 2 });
       out.Container_Long.push({ x: x1 - 7, y: y1 - 4, yaw: 0 });
       out.Tank.push({ x: x1 - 8, y: y0 + 7, yaw: Math.PI * 0.8 });
+    } else if (s.role === 'hospital') {
+      // Hospital: the building fills the back of the site; one sandbag position guards the front.
+      out.SackTrench.push({ x: cx, y: y0 + 3, yaw: 0 });
     } else {
       // Depot: a container yard.
       for (let i = 0; i < 3; i++) out.Container_Long.push({ x: x0 + 6, y: y0 + 5 + i * 3.2, yaw: 0 });
@@ -155,6 +158,11 @@ export function placeProps(map: MapInfo): Record<PropName, Placement[]> {
   out.Tank = out.Tank.filter(onLot);
   return out;
 }
+
+/** How far south of the command post the medical tent stands (metres): clear of its sandbag positions. */
+const MED_TENT_OFFSET_M = 12;
+/** A tent keeps at least this far from a container or tank (metres, centre to centre). */
+const TENT_CLEAR_M = 7;
 
 /** Lot blocks inside the base big enough for a tent (2 x 3 cells), at most `max`. */
 function tentSpots(map: MapInfo, max: number): Placement[] {
@@ -197,6 +205,53 @@ function tentGeometry(): THREE.BufferGeometry {
   return g;
 }
 
+/**
+ * The base medical tent: a white ridge tent, length along x, with a red cross on both slopes of the
+ * roof (seen from above) and on both ends. Coloured per vertex like the other tents.
+ */
+function medTentGeometry(): THREE.BufferGeometry {
+  const half = 2.3;
+  const rise = 2.8;
+  const len = 7.4;
+  const parts: [THREE.BufferGeometry, THREE.Color][] = [];
+  const body = new THREE.ExtrudeGeometry(new THREE.Shape([new THREE.Vector2(-half, 0), new THREE.Vector2(half, 0), new THREE.Vector2(0, rise)]), { depth: len, bevelEnabled: false });
+  body.translate(0, 0, -len / 2).rotateY(Math.PI / 2);
+  parts.push([body, new THREE.Color(PALETTE.medTent)]);
+  const red = new THREE.Color(PALETTE.redCross);
+  // A cross lying on each roof slope: built flat, tilted to the slope, lifted just off it.
+  const slope = Math.atan2(rise, half);
+  const lift = 0.03;
+  for (const side of [1, -1]) {
+    for (const [sx, sz] of [[1.8, 0.55], [0.55, 1.8]]) {
+      const g = new THREE.BoxGeometry(sx, 0.04, sz).rotateX(side * slope);
+      const nz = (side * rise) / Math.hypot(rise, half);
+      const ny = half / Math.hypot(rise, half);
+      g.translate(0, rise / 2 + ny * lift, (side * half) / 2 + nz * lift);
+      parts.push([g, red]);
+    }
+  }
+  // And on each end, in the triangle under the ridge.
+  for (const end of [1, -1]) {
+    const x = end * (len / 2 + 0.02);
+    parts.push([new THREE.BoxGeometry(0.04, 0.4, 1.3).translate(x, 1.05, 0), red], [new THREE.BoxGeometry(0.04, 1.3, 0.4).translate(x, 1.05, 0), red]);
+  }
+  const pos: number[] = [];
+  const nor: number[] = [];
+  const col: number[] = [];
+  for (const [p, c] of parts) {
+    const g = p.index ? p.toNonIndexed() : p;
+    g.computeVertexNormals();
+    pos.push(...(g.attributes.position.array as Float32Array));
+    nor.push(...(g.attributes.normal.array as Float32Array));
+    for (let i = 0; i < g.attributes.position.count; i++) col.push(c.r, c.g, c.b);
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  out.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  out.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return out;
+}
+
 /** Instanced props, one draw call per kind. */
 export async function buildProps(map: MapInfo, baseUrl: string): Promise<THREE.Group> {
   const group = new THREE.Group();
@@ -207,7 +262,18 @@ export async function buildProps(map: MapInfo, baseUrl: string): Promise<THREE.G
   const p = new THREE.Vector3();
   const s = new THREE.Vector3(1, 1, 1);
   const up = new THREE.Vector3(0, 1, 0);
-  const tents = tentSpots(map, 8);
+  // No tent under a container or a fuel tank.
+  const yard = [...placements.Container_Long, ...placements.Tank];
+  const tents = tentSpots(map, 8).filter((t) => yard.every((c) => Math.hypot(c.x - t.x, c.y - t.y) > TENT_CLEAR_M));
+  // The medical tent, where kits are used, stands just south of the command post in open ground.
+  const base = map.sites.find((s) => s.kind === 'base');
+  if (base) {
+    const mesh = new THREE.Mesh(medTentGeometry(), mat);
+    mesh.position.set(((base.x0 + base.x1 + 1) / 2) * map.cellSize, 0, ((base.y0 + base.y1 + 1) / 2) * map.cellSize + MED_TENT_OFFSET_M);
+    mesh.castShadow = mesh.receiveShadow = true;
+    mesh.name = 'MedicalTent';
+    group.add(mesh);
+  }
   if (tents.length) {
     const mesh = new THREE.InstancedMesh(tentGeometry(), mat, tents.length);
     tents.forEach((pl, i) => mesh.setMatrixAt(i, m.compose(p.set(pl.x, 0, pl.y), q.identity(), s)));

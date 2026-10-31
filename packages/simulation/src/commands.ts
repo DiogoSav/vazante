@@ -193,7 +193,7 @@ export function applyCommand(w: World, cmd: Command): string | null {
       return orderConvoy(w, cmd.vehicle, cmd.to, cmd.policy);
 
     case "load":
-      return loadCargo(w, cmd.vehicle, cmd.ammo, cmd.materials);
+      return loadCargo(w, cmd.vehicle, cmd.ammo, cmd.materials, cmd.medkits ?? 0);
 
     case "stop_vehicle":
       return stopVehicle(w, cmd.vehicle);

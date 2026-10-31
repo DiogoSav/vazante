@@ -294,7 +294,7 @@ export function stopVehicle(w: World, id: number): string | null {
 }
 
 /** Move cargo between a vehicle and the site it is parked in. Positive loads, negative unloads. */
-export function loadCargo(w: World, id: number, ammo: number, materials: number): string | null {
+export function loadCargo(w: World, id: number, ammo: number, materials: number, medkits = 0): string | null {
   const v = w.vehicle(id);
   if (!v || v.state === 'destroyed') return 'no_vehicle';
   if (v.state === 'moving') return 'vehicle_moving';
@@ -308,6 +308,13 @@ export function loadCargo(w: World, id: number, ammo: number, materials: number)
   site.ammo -= da;
   v.cargoMaterials += dm;
   site.materials -= dm;
+  const k = Math.floor(medkits);
+  const aboard = v.cargoMedkits ?? 0;
+  const dk = k >= 0 ? Math.min(k, site.medkits ?? 0, TRUCK.capacityMedkits - aboard) : -Math.min(-k, aboard);
+  if (dk !== 0) {
+    v.cargoMedkits = aboard + dk;
+    site.medkits = (site.medkits ?? 0) - dk;
+  }
   return null;
 }
 
@@ -337,6 +344,13 @@ function arrive(w: World, v: Vehicle): void {
   if (v.passengers > 0 && (site.kind === 'base' || site.role === 'station')) {
     w.emit({ type: 'civilians_delivered', source: v.id, target: site.id, x: v.x, y: v.y, value: v.passengers });
     v.passengers = 0;
+  }
+  // Medical kits only go to the home base, where the medical tent uses them.
+  const kits = v.cargoMedkits ?? 0;
+  if (kits > 0 && site.kind === 'base') {
+    site.medkits = (site.medkits ?? 0) + kits;
+    v.cargoMedkits = 0;
+    w.emit({ type: 'medkits_delivered', source: v.id, target: site.id, x: v.x, y: v.y, value: kits });
   }
   const ammo = v.cargoAmmo;
   const materials = v.cargoMaterials;

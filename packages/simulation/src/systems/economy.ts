@@ -1,4 +1,4 @@
-import { CELL_SIZE, ECONOMY, siteZone, SoldierCondition, SQUADS, TICK_DT, TICK_HZ, type SquadKind } from '@vazante/shared';
+import { CELL_SIZE, DAY, ECONOMY, MEDKITS, siteZone, SoldierCondition, SQUADS, TICK_DT, TICK_HZ, type SquadKind } from '@vazante/shared';
 import type { Base } from '../entities.ts';
 import { spawnSquad } from '../spawn.ts';
 import { spawnTruck } from './logistics.ts';
@@ -24,7 +24,8 @@ export function siteIncome(w: World): Map<number, { materials: number; ammo: num
   for (const b of w.bases) {
     const held = w.economy && siteHeld(w, b);
     out.set(b.id, {
-      materials: held ? ECONOMY.siteMaterials : 0,
+      // The hospital makes medical kits, not materials.
+      materials: held && b.role !== 'hospital' ? ECONOMY.siteMaterials : 0,
       ammo: held && b.role === 'supply' ? ECONOMY.supplyAmmo : 0,
     });
   }
@@ -71,6 +72,16 @@ export function stepEconomy(w: World): void {
       b.ammo += inc.ammo;
     }
   }
+  // A held hospital makes MEDKITS.perDay kits a game day, one at a time, into its own stock: a truck
+  // has to bring them to the home base.
+  const every = Math.round(((w.day ?? DAY).lengthS * TICK_HZ) / MEDKITS.perDay);
+  if (w.tick > 0 && w.tick % every === 0) {
+    for (const b of w.bases) {
+      if (b.role !== 'hospital' || !siteHeld(w, b)) continue;
+      b.medkits = (b.medkits ?? 0) + 1;
+      w.emit({ type: 'medkit_made', target: b.id, value: b.medkits, reason: b.name });
+    }
+  }
   const heal = ECONOMY.hospitalHealPerS * TICK_DT;
   for (const b of w.bases) {
     if (b.role !== 'hospital' || !siteHeld(w, b)) continue;
@@ -83,6 +94,30 @@ export function stepEconomy(w: World): void {
         w.emit({ type: 'soldier_cured', source: s.id, x: s.x, y: s.y });
       }
     }
+  }
+}
+
+/**
+ * The medical tent of the home base, in every mode: a soldier inside the base who is bitten, or
+ * wounded below MEDKITS.treatBelow of his health, uses one kit from the base stock and is fully healed
+ * and cured. Checked once a second; nothing happens without kits.
+ */
+export function stepMedicalTent(w: World): void {
+  if (w.tick % TICK_HZ !== 0) return;
+  const home = w.bases.find((b) => b.kind === 'base');
+  if (!home || !home.medkits) return;
+  for (const s of w.soldiers) {
+    if (!home.medkits) break;
+    if (!isActiveSoldier(s) || !inside(home, s.x, s.y)) continue;
+    const bitten = s.condition === SoldierCondition.Bitten;
+    if (!bitten && s.hp >= s.maxHp * MEDKITS.treatBelow) continue;
+    home.medkits--;
+    s.hp = s.maxHp;
+    if (bitten) {
+      s.condition = SoldierCondition.Ok;
+      s.turnAt = -1;
+    }
+    w.emit({ type: 'medkit_used', source: s.id, value: home.medkits, x: s.x, y: s.y, reason: bitten ? 'bite' : 'wound' });
   }
 }
 
