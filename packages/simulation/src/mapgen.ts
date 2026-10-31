@@ -1,5 +1,5 @@
 import { Rng } from '@vazante/kernel';
-import { Ground, ZONES, buildingStyle, type BuildingRect, type DistrictInfo, type DistrictZone, type SiteInfo, type SiteRole } from '@vazante/shared';
+import { BUILDING_SHAPE, Ground, ZONES, buildingStyle, type BuildingRect, type DistrictInfo, type DistrictZone, type SiteInfo, type SiteRole } from '@vazante/shared';
 import { Grid } from './grid.ts';
 
 export interface GeneratedMap {
@@ -117,10 +117,12 @@ function blockRuns(isStreet: Uint8Array, size: number): Array<[number, number]> 
 
 /** Split a block into lots of `side` cells (min, max) with a one-cell alley gap on some sides. */
 function subdivide(rng: Rng, block: Rect, side: readonly [number, number], place: (lot: Rect) => void): void {
+  // A strip left at the block edge narrower than a lot joins the lot before it.
+  const span = (draw: number, rest: number) => (rest - draw < side[0] ? rest : draw);
   for (let y = block.y0; y <= block.y1; ) {
-    const h = Math.min(rng.int(side[0], side[1]), block.y1 - y + 1);
+    const h = span(rng.int(side[0], side[1]), block.y1 - y + 1);
     for (let x = block.x0; x <= block.x1; ) {
-      const w = Math.min(rng.int(side[0], side[1]), block.x1 - x + 1);
+      const w = span(rng.int(side[0], side[1]), block.x1 - x + 1);
       const gapX = rng.chance(0.35) ? 1 : 0;
       const gapY = rng.chance(0.35) ? 1 : 0;
       const lot: Rect = { x0: x, y0: y, x1: x + w - 1 - gapX, y1: y + h - 1 - gapY };
@@ -137,8 +139,11 @@ function buildLots(rng: Rng, grid: Grid, block: Rect, zone: DistrictZone, buildi
   subdivide(rng, block, spec.lot, (lot) => {
     if (!rng.chance(spec.built)) return;
     for (let y = lot.y0; y <= lot.y1; y++) for (let x = lot.x0; x <= lot.x1; x++) if (grid.ground[grid.idx(x, y)] !== Ground.Lot) return;
+    // Too narrow a lot stays empty; a narrow one gets a lower building, never a sliver of a tower.
+    const narrowest = Math.min(lot.x1 - lot.x0 + 1, lot.y1 - lot.y0 + 1);
+    if (narrowest < BUILDING_SHAPE.minSide) return;
     const id = buildings.length + 1;
-    const floors = rng.int(spec.floors[0], spec.floors[1]);
+    const floors = Math.min(rng.int(spec.floors[0], spec.floors[1]), narrowest * BUILDING_SHAPE.floorsPerCell);
     const h = floors * 3;
     buildings.push({ id, ...lot, height: h, style: buildingStyle(zone, floors) });
     for (let y = lot.y0; y <= lot.y1; y++) {

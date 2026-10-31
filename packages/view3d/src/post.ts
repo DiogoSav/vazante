@@ -30,6 +30,7 @@ export class PixelPost {
         far: { value: 1000 },
         ortho: { value: 1 },
         edgeThreshold: { value: 0.6 },
+        groundStep: { value: 0 },
         outline: { value: new THREE.Color(0x0b0d10) },
         levels: { value: 28 },
         vignette: { value: 0.35 },
@@ -47,6 +48,7 @@ export class PixelPost {
         uniform float far;
         uniform float ortho;
         uniform float edgeThreshold;
+        uniform float groundStep;
         uniform vec3 outline;
         uniform float levels;
         uniform float vignette;
@@ -81,8 +83,10 @@ export class PixelPost {
           float zr = viewZ(vUv + vec2(px.x, 0.0));
           float zu = viewZ(vUv + vec2(0.0, px.y));
           float zd = viewZ(vUv - vec2(0.0, px.y));
-          // Outline the nearer side of a depth jump; threshold grows with distance in perspective.
-          float thr = edgeThreshold * (ortho > 0.5 ? 1.0 : max(1.0, zc * 0.05));
+          // Outline the nearer side of a depth jump; threshold grows with distance in perspective. In
+          // the ortho view it stays above the depth step of flat ground between two pixel rows, or a
+          // mid zoom outlines (and darkens) every street and roof.
+          float thr = ortho > 0.5 ? max(edgeThreshold, groundStep * 1.25) : edgeThreshold * max(1.0, zc * 0.05);
           float nearer = max(max(zc - zl, zc - zr), max(zc - zu, zc - zd));
           float farther = max(max(zl - zc, zr - zc), max(zu - zc, zd - zc));
           float edge = step(thr, farther) * (1.0 - step(thr, nearer) * 0.5);
@@ -124,6 +128,14 @@ export class PixelPost {
   setSize(w: number, h: number): void {
     this.target.setSize(w, h);
     this.material.uniforms.resolution.value.set(w, h);
+  }
+
+  /**
+   * Depth change (metres) between two neighbouring pixel rows on flat ground in the ortho view:
+   * pixel size over the tangent of the camera's elevation. 0 when it does not apply.
+   */
+  set groundStep(m: number) {
+    this.material.uniforms.groundStep.value = m;
   }
 
   render(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera): void {
