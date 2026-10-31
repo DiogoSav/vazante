@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Ground, STRUCTURE_FLOW_PENALTY } from '@vazante/shared';
+import { Ground, MISSIONS, STRUCTURE_FLOW_PENALTY } from '@vazante/shared';
 import { FlowJob, SimulationEngine, computeFlowField, generateCityMap, type Grid } from '../src/index.ts';
 
 function reachable(grid: Grid, start: number): Uint8Array {
@@ -66,6 +66,35 @@ describe('Porto Velário', () => {
     }
   });
 
+  it('has one district of each land use, and the Depósito Norte always stands in the industrial one, over 30 seeds', () => {
+    for (let seed = 1; seed <= 30; seed++) {
+      const { grid, districts, sites, buildings } = generateCityMap(seed);
+      const zones = districts.map((d) => d.zone);
+      expect(zones.filter((z) => z === 'industrial'), `seed ${seed}`).toHaveLength(1);
+      expect(zones.filter((z) => z === 'downtown'), `seed ${seed}`).toHaveLength(1);
+      expect(zones, `seed ${seed}`).toContain('residential');
+      const depot = sites.find((s) => s.name === 'Depósito Norte')!;
+      const id = grid.district[grid.idx((depot.x0 + depot.x1) >> 1, (depot.y0 + depot.y1) >> 1)];
+      expect(districts.find((d) => d.id === id)!.zone, `seed ${seed}`).toBe('industrial');
+      // Each block takes the look of its district (a block across a border follows its centre).
+      const warehouses = buildings.filter((b) => b.style === 'warehouse');
+      const inIndustrial = warehouses.filter((b) => districts.find((d) => d.id === grid.district[grid.idx(b.x0, b.y0)])!.zone === 'industrial');
+      expect(inIndustrial.length / warehouses.length, `seed ${seed}`).toBeGreaterThan(0.9);
+      for (const b of buildings) if (b.style === 'house') expect(b.height).toBeLessThanOrEqual(6);
+    }
+  });
+
+  it('downtown stands taller than the houses', () => {
+    const { grid, districts, buildings } = generateCityMap(3);
+    const zoneOf = (b: (typeof buildings)[number]) => districts.find((d) => d.id === grid.district[grid.idx(b.x0, b.y0)])!.zone;
+    const mean = (zone: string) => {
+      const hs = buildings.filter((b) => zoneOf(b) === zone).map((b) => b.height);
+      return hs.reduce((a, h) => a + h, 0) / hs.length;
+    };
+    expect(mean('downtown')).toBeGreaterThan(mean('residential') * 4);
+    expect(buildings.some((b) => b.style === 'tower')).toBe(true);
+  });
+
   it('every street cell and every depot is reachable from the base, across the river', () => {
     for (const seed of [1, 2, 3]) {
       const { grid, sites } = generateCityMap(seed);
@@ -74,6 +103,38 @@ describe('Porto Velário', () => {
       for (let c = 0; c < grid.size; c++) if (grid.ground[c] === Ground.Street) expect(seen[c], `seed ${seed} cell ${c}`).toBe(1);
       for (const s of sites) expect(seen[grid.idx(s.x0 + 2, s.y0 + 2)]).toBe(1);
     }
+  });
+
+  it('survival plays on a 1.5 km city with the same layout rules, scaled: own districts, 300 m apart, all reachable, over 30 seeds', () => {
+    expect(MISSIONS.survival.citySize).toBe(384);
+    for (let seed = 1; seed <= 30; seed++) {
+      const { grid, sites, districts } = generateCityMap(seed, 384);
+      expect(grid.width).toBe(384);
+      expect(districts).toHaveLength(6);
+      expect(sites.filter((s) => s.kind === 'depot')).toHaveLength(3);
+      const centre = (s: (typeof sites)[number]) => [(s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2];
+      const ids = sites.map((s) => grid.district[grid.idx(Math.round(centre(s)[0]), Math.round(centre(s)[1]))]);
+      expect(new Set(ids).size, `seed ${seed}`).toBe(sites.length);
+      const depot = sites.find((s) => s.name === 'Depósito Norte')!;
+      expect(districts.find((d) => d.id === ids[sites.indexOf(depot)])!.zone, `seed ${seed}`).toBe('industrial');
+      const c = sites.slice(1).map(centre);
+      for (let i = 0; i < c.length; i++) {
+        for (let j = i + 1; j < c.length; j++) expect(Math.hypot(c[i][0] - c[j][0], c[i][1] - c[j][1]) * 4, `seed ${seed}`).toBeGreaterThanOrEqual(300);
+      }
+      if (seed <= 3) {
+        const base = sites[0];
+        const seen = reachable(grid, grid.idx(base.x0 + 2, base.y0 + 2));
+        for (const s of sites) expect(seen[grid.idx(s.x0 + 2, s.y0 + 2)], `seed ${seed} ${s.name}`).toBe(1);
+      }
+    }
+  });
+
+  it('survival starts with the infected scaled to the smaller city', () => {
+    const e = SimulationEngine.create(5, 'survival');
+    expect(e.world.grid.width).toBe(384);
+    const alive = e.world.zombies.alive;
+    expect(alive).toBeGreaterThan(1500);
+    expect(alive).toBeLessThanOrEqual(MISSIONS.survival.zombies);
   });
 
   it('the flow field computed in slices equals the one computed at once', () => {

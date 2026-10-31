@@ -1,5 +1,5 @@
 /// <reference lib="webworker" />
-import { DIFFICULTY_IDS, MAX_TICKS_PER_FRAME, TICK_HZ, type DifficultyId, type FromWorker, type ToWorker } from '@vazante/shared';
+import { DIFFICULTY_IDS, MAX_TICKS_PER_FRAME, TICK_HZ, TIME_SCALE, type DifficultyId, type FromWorker, type ToWorker } from '@vazante/shared';
 import { SCENARIO_IDS, SimulationEngine } from '@vazante/simulation';
 
 declare const self: DedicatedWorkerGlobalScope;
@@ -18,7 +18,7 @@ function loop(): void {
   const dt = Math.min(250, now - last);
   last = now;
   const w = engine.world;
-  acc += (dt / 1000) * TICK_HZ * w.speed;
+  acc += (dt / 1000) * TICK_HZ * w.speed * TIME_SCALE;
   let ran = 0;
   while (acc >= 1 && ran < MAX_TICKS_PER_FRAME) {
     const t0 = performance.now();

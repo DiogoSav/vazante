@@ -15,6 +15,16 @@ export const PALETTE = {
   park: 0x3d5a33,
   water: 0x23465c,
   buildingTones: [0x9b8f7a, 0xa69c88, 0x8b8578, 0xb0a189, 0x7f7a70, 0x9a7f6a, 0x8d9097],
+  /** Downtown towers above their podium: glass and steel. */
+  towerTones: [0x6f8496, 0x7e8c94, 0x5f7080, 0x8a949a],
+  /** Painted houses: lime white, ochre, faded blue, pink, sage. */
+  houseTones: [0xd2c8b4, 0xc9a66b, 0xa9b8b8, 0xc4958a, 0xa8b08c, 0xcdb48e],
+  roofTiles: [0x8a4a32, 0x9a5a3a, 0x6e3f2e, 0x7d4f3c],
+  warehouseTones: [0x7a8086, 0x8a8478, 0x6f7a72, 0x8c6f58, 0x9a9a92, 0x5f6a74],
+  metalRoofs: [0x6a7074, 0x80868a, 0x5d6266, 0x7a5e4a],
+  /** Ground of the lots by land use: house gardens and industrial yards. */
+  garden: 0x4d6b38,
+  yard: 0x5c5c57,
   trunk: 0x4a3524,
   foliage: 0x3f6b35,
   pole: 0x2c2f33,

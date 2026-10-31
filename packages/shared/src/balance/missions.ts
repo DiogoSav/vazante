@@ -101,6 +101,8 @@ export type StageKind = StageDef["kind"];
 export interface MissionDef {
   id: MissionId;
   map: "slice" | "city";
+  /** Side of the city in cells (4 m each) when `map` is "city"; the full Porto Velário is 512 (2 km). */
+  citySize?: number;
   /** Squads at the base, left to right. */
   squads: readonly { kind: SquadKind; name: string }[];
   /** Trucks: parked at a site by name ('base' = the player's base), with cargo. */
@@ -291,6 +293,8 @@ export const MISSIONS: Readonly<Record<MissionId, MissionDef>> = {
   survival: {
     id: "survival",
     map: "city",
+    // 1.5 km instead of 2 km; the infected are scaled to the area (×0.5625) so the streets are as crowded.
+    citySize: 384,
     squads: [
       { kind: "slice", name: "Alfa" },
       { kind: "marines", name: "Bravo" },
@@ -302,9 +306,9 @@ export const MISSIONS: Readonly<Record<MissionId, MissionDef>> = {
       { at: "Depósito Norte", ammo: 3000, materials: 200 },
     ],
     zones: [],
-    zombies: 4000,
+    zombies: 2250,
     zombieKinds: ZOMBIES.length,
-    clearRadiusM: 300,
+    clearRadiusM: 225,
     materials: 500,
     ammo: 2500,
     commandPost: true,
@@ -323,8 +327,8 @@ export const MISSIONS: Readonly<Record<MissionId, MissionDef>> = {
           repopGraceS: 600,
           repopEveryS: 90,
           repopSize: 40,
-          repopEdgeM: 250,
-          cap: 4000,
+          repopEdgeM: 190,
+          cap: 2250,
           capGrow: 0.1,
           repopClearM: 180,
         },

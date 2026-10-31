@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { Ground, type MapInfo } from '@vazante/shared';
-import { buildingMaterial, toon } from './materials.ts';
+import { Ground, type BuildingRect, type DistrictZone, type MapInfo } from '@vazante/shared';
+import { buildingMaterial, toon, type FacadeKind } from './materials.ts';
 import { PALETTE } from './palette.ts';
 
 /** Texels per cell in the ground texture (lane markings, curbs, grain). */
@@ -19,37 +19,194 @@ export function buildCity(map: MapInfo): THREE.Group {
   groundMesh.name = 'ground';
   group.add(groundMesh);
 
-  const box = new THREE.BoxGeometry(1, 1, 1);
-  box.translate(0, 0.5, 0);
-  const inst = new THREE.InstancedMesh(box, buildingMaterial(), Math.max(1, map.buildings.length));
-  const m = new THREE.Matrix4();
-  const col = new THREE.Color();
-  const tones = PALETTE.buildingTones.map((c) => new THREE.Color(c));
-  map.buildings.forEach((b, i) => {
-    // Inset a little so alleys and sidewalks read between buildings.
-    const w = (b.x1 - b.x0 + 1) * cs - 0.6;
-    const d = (b.y1 - b.y0 + 1) * cs - 0.6;
-    m.makeScale(w, b.height, d);
-    m.setPosition(b.x0 * cs + (w + 0.6) / 2, 0, b.y0 * cs + (d + 0.6) / 2);
-    inst.setMatrixAt(i, m);
-    col.copy(tones[hash(b.id) % tones.length]).multiplyScalar(0.9 + (hash(b.id * 7) % 20) / 100);
-    inst.setColorAt(i, col);
-  });
-  inst.count = map.buildings.length;
-  inst.castShadow = true;
-  inst.receiveShadow = true;
-  inst.instanceMatrix.needsUpdate = true;
-  if (inst.instanceColor) inst.instanceColor.needsUpdate = true;
-  inst.name = 'buildings';
-  group.add(inst);
+  group.add(buildBuildings(map));
 
   const props = buildProps(map);
   group.add(props);
   group.userData.lamps = props.userData.lamps;
 
-  group.add(buildRooftops(map));
   group.add(buildOutskirts(map));
   splitIntoChunks(group, CHUNK_M);
+  return group;
+}
+
+/** A building's footprint in metres, inset a little so alleys and sidewalks read between buildings. */
+function footprint(b: BuildingRect, cs: number): { x: number; z: number; w: number; d: number } {
+  const w = (b.x1 - b.x0 + 1) * cs - 0.6;
+  const d = (b.y1 - b.y0 + 1) * cs - 0.6;
+  return { x: b.x0 * cs + (w + 0.6) / 2, z: b.y0 * cs + (d + 0.6) / 2, w, d };
+}
+
+/** A tower's podium height and how far the shaft above it is set back from the podium edge (metres). */
+function towerShape(b: BuildingRect, w: number, d: number): { podium: number; inset: number } {
+  return { podium: 6 + (hash(b.id * 31) % 3) * 3, inset: Math.max(1.2, Math.min(w, d) * (0.14 + (hash(b.id * 53) % 10) / 100)) };
+}
+
+/** What the fall of the city did to a building. Purely visual: the simulation keeps its footprint and height. */
+export type BuildingDamage = 'none' | 'burning' | 'burnt' | 'collapsed' | 'destroyed';
+
+/** Share of the buildings per damage, in thousandths: 15 % of the city in all. */
+const DAMAGE_SHARE: ReadonlyArray<readonly [BuildingDamage, number]> = [
+  ['burning', 30],
+  ['burnt', 60],
+  ['collapsed', 35],
+  ['destroyed', 25],
+];
+
+/** Stable per building and city seed, so the renderer's fires land on the buildings drawn as burning. */
+export function buildingDamage(b: BuildingRect, seed: number): BuildingDamage {
+  let r = hash(b.id * 2246822519 + seed * 7919) % 1000;
+  for (const [damage, share] of DAMAGE_SHARE) {
+    if (r < share) return damage;
+    r -= share;
+  }
+  return 'none';
+}
+
+/**
+ * The buildings, one instanced mesh per facade and roof shape: towers on a podium downtown,
+ * apartment blocks, houses under tiled gable roofs and warehouses under barrel or low metal roofs.
+ * Damaged buildings get sooty facades; collapsed ones lose their top or roof to rubble, and
+ * destroyed ones are a mound of rubble with a few wall stumps standing.
+ */
+function buildBuildings(map: MapInfo): THREE.Group {
+  const group = new THREE.Group();
+  const cs = map.cellSize;
+  type Part = [THREE.Matrix4, THREE.Color];
+  const walls: Record<FacadeKind, Part[]> = { block: [], house: [], warehouse: [] };
+  const burnt: Record<FacadeKind, Part[]> = { block: [], house: [], warehouse: [] };
+  const tiles: Part[] = [];
+  const barrels: Part[] = [];
+  const sheets: Part[] = [];
+  const rubble: Part[] = [];
+  const pick = (list: readonly number[], h: number) => new THREE.Color(list[h % list.length]).multiplyScalar(0.9 + (hash(h * 7) % 20) / 100);
+  const pos = new THREE.Vector3();
+  const scale = new THREE.Vector3();
+  const flat = new THREE.Quaternion();
+  const turned = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2);
+  const tumble = new THREE.Euler();
+  const part = (x: number, y: number, z: number, sx: number, sy: number, sz: number, q = flat) => new THREE.Matrix4().compose(pos.set(x, y, z), q, scale.set(sx, sy, sz));
+  // A pitched roof runs its ridge along the longer side of the footprint.
+  const roof = (x: number, y: number, z: number, w: number, d: number, rise: number, eave: number) =>
+    w >= d ? part(x, y, z, w + eave, rise, d + eave) : part(x, y, z, d + eave, rise, w + eave, turned);
+  const concrete = new THREE.Color(0x77756f);
+  const char = new THREE.Color(0x1d1b19);
+  // Chunks of rubble tumbled at random over the footprint (and a little past it), tinted from the building.
+  const scatter = (seed: number, x: number, y: number, z: number, w: number, d: number, n: number, size: number, tone: THREE.Color) => {
+    for (let k = 0; k < n; k++) {
+      const r = hash(seed + k * 7919);
+      const s = size * (0.5 + (r % 100) / 100);
+      tumble.set(((r >>> 7) % 314) / 100, ((r >>> 13) % 628) / 100, ((r >>> 19) % 314) / 100);
+      const px = x + (((r >>> 3) % 1000) / 1000 - 0.5) * w;
+      const pz = z + (((r >>> 11) % 1000) / 1000 - 0.5) * d;
+      const c = tone.clone().lerp(k % 3 === 0 ? char : concrete, 0.55).multiplyScalar(0.55 + ((r >>> 5) % 30) / 100);
+      rubble.push([part(px, y + s * 0.2, pz, s * 1.4, s * 0.7, s, new THREE.Quaternion().setFromEuler(tumble)), c]);
+    }
+  };
+  // Jagged wall stumps along the edge of a broken top (or of a ruin's footprint).
+  const stumps = (seed: number, kind: FacadeKind, x: number, y: number, z: number, w: number, d: number, n: number, tall: number, tone: THREE.Color) => {
+    for (let k = 0; k < n; k++) {
+      const r = hash(seed + k * 104729);
+      const len = 1.5 + (r % 40) / 10;
+      const ht = 0.8 + ((r >>> 6) % 100) / 100 * tall;
+      const t = ((r >>> 12) % 1000) / 1000 - 0.5;
+      const side = (r >>> 22) % 4;
+      const sx = side < 2 ? Math.min(len, w) : 0.6;
+      const sz = side < 2 ? 0.6 : Math.min(len, d);
+      const px = side < 2 ? x + t * (w - sx) : x + (side === 2 ? -1 : 1) * (w / 2 - 0.3);
+      const pz = side < 2 ? z + (side === 0 ? -1 : 1) * (d / 2 - 0.3) : z + t * (d - sz);
+      burnt[kind].push([part(px, y, pz, sx, ht, sz), tone]);
+    }
+  };
+
+  for (const b of map.buildings) {
+    const { x, z, w, d } = footprint(b, cs);
+    const h = hash(b.id);
+    const damage = buildingDamage(b, map.seed);
+    const kind: FacadeKind = b.style === 'house' ? 'house' : b.style === 'warehouse' ? 'warehouse' : 'block';
+    const tone = b.style === 'house' ? pick(PALETTE.houseTones, h) : b.style === 'warehouse' ? pick(PALETTE.warehouseTones, h) : pick(PALETTE.buildingTones, h);
+    const wallsOf = damage === 'none' ? walls : burnt;
+    const roofTone = (list: readonly number[]) => (damage === 'none' ? pick(list, h >>> 4) : pick(list, h >>> 4).multiplyScalar(0.35));
+
+    if (damage === 'destroyed') {
+      // A low mound of rubble over the whole lot, broken slabs on it and a few walls still standing.
+      const mound = 0.6 + (h % 8) / 10;
+      rubble.push([part(x, mound / 2, z, w * 0.9, mound, d * 0.9), tone.clone().lerp(concrete, 0.6).multiplyScalar(0.6)]);
+      scatter(h, x, mound, z, w + 2, d + 2, 6 + Math.round((w * d) / 30), 1.6, tone);
+      stumps(h, kind, x, 0, z, w, d, 2 + (h % 3), Math.min(b.height, 8), tone);
+      continue;
+    }
+
+    if (b.style === 'tower') {
+      const { podium, inset } = towerShape(b, w, d);
+      const sw = w - 2 * inset;
+      const sd = d - 2 * inset;
+      // A collapsed tower keeps its podium and the stump of its shaft.
+      const shaft = damage === 'collapsed' ? (b.height - podium) * (0.3 + (h % 30) / 100) : b.height - podium;
+      wallsOf.block.push([part(x, 0, z, w, podium, d), tone]);
+      wallsOf.block.push([part(x, podium, z, sw, shaft, sd), pick(PALETTE.towerTones, h)]);
+      if (damage === 'collapsed') {
+        stumps(h, 'block', x, podium + shaft, z, sw, sd, 4 + (h % 3), 4, pick(PALETTE.towerTones, h));
+        scatter(h * 3, x, podium, z, w, d, 8, 1.8, tone);
+        scatter(h * 5, x, 0, z, w + 6, d + 6, 6, 1.4, tone);
+      }
+    } else if (b.style === 'house' || b.style === 'warehouse') {
+      wallsOf[kind].push([part(x, 0, z, w, b.height, d), tone]);
+      if (damage === 'collapsed') {
+        // The roof has fallen in: rubble fills the shell and spills out of the doors.
+        scatter(h, x, b.height * 0.5, z, w * 0.8, d * 0.8, 5 + Math.round((w * d) / 40), 1.5, tone);
+        scatter(h * 7, x, 0, z, w + 3, d + 3, 4, 1.1, tone);
+      } else if (b.style === 'house') {
+        tiles.push([roof(x, b.height, z, w, d, Math.min(3.2, Math.max(1.6, Math.min(w, d) * 0.32)), 0.8), roofTone(PALETTE.roofTiles)]);
+      } else if (h % 3 === 0) {
+        sheets.push([roof(x, b.height, z, w, d, Math.min(w, d) * 0.12, 0.4), roofTone(PALETTE.metalRoofs)]);
+      } else {
+        barrels.push([roof(x, b.height, z, w, d, Math.min(w, d) * 0.2, 0.2), roofTone(PALETTE.metalRoofs)]);
+      }
+    } else {
+      // A collapsed block loses its upper floors: a broken top with stumps, rubble on it and at its foot.
+      const top = damage === 'collapsed' ? Math.max(3, Math.round(b.height * (0.4 + (h % 30) / 100))) : b.height;
+      wallsOf.block.push([part(x, 0, z, w, top, d), tone]);
+      if (damage === 'collapsed') {
+        stumps(h, 'block', x, top, z, w, d, 4 + (h % 3), 3.5, tone);
+        scatter(h * 3, x, top, z, w * 0.8, d * 0.8, 6, 1.6, tone);
+        scatter(h * 5, x, 0, z, w + 6, d + 6, 6, 1.4, tone);
+      }
+    }
+  }
+
+  const box = new THREE.BoxGeometry(1, 1, 1);
+  box.translate(0, 0.5, 0);
+  // Gable: a triangular prism one unit long (x), wide (z) and high (y), sitting on y = 0.
+  const tri = new THREE.Shape([new THREE.Vector2(-0.5, 0), new THREE.Vector2(0.5, 0), new THREE.Vector2(0, 1)]);
+  const gable = new THREE.ExtrudeGeometry(tri, { depth: 1, bevelEnabled: false });
+  gable.translate(0, 0, -0.5);
+  gable.rotateY(Math.PI / 2);
+  // Barrel vault: half a cylinder along x, half a unit high, scaled to the rise.
+  const barrel = new THREE.CylinderGeometry(0.5, 0.5, 1, 14, 1, false, 0, Math.PI);
+  barrel.rotateZ(Math.PI / 2);
+  barrel.scale(1, 2, 1);
+  const add = (geo: THREE.BufferGeometry, material: THREE.Material, list: Part[], name: string) => {
+    if (list.length === 0) return;
+    const mesh = new THREE.InstancedMesh(geo, material, list.length);
+    list.forEach(([m, c], i) => {
+      mesh.setMatrixAt(i, m);
+      mesh.setColorAt(i, c);
+    });
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    mesh.name = name;
+    group.add(mesh);
+  };
+  for (const kind of ['block', 'house', 'warehouse'] as const) {
+    add(box, buildingMaterial(kind), walls[kind], 'buildings');
+    add(box, buildingMaterial(kind, true), burnt[kind], 'buildings');
+  }
+  const chunk = new THREE.BoxGeometry(1, 1, 1);
+  add(chunk, toon(), rubble, 'rubble');
+  add(gable, toon(), tiles, 'roofs');
+  add(gable, toon(), sheets, 'roofs');
+  add(barrel, toon(), barrels, 'roofs');
   return group;
 }
 
@@ -107,54 +264,6 @@ export function buildDistrictOverlay(map: MapInfo): THREE.Group {
   for (const d of map.districts) g.add(rectOutline(d.x0 * cs + 1, d.y0 * cs + 1, (d.x1 + 1) * cs - 1, (d.y1 + 1) * cs - 1, PALETTE.district, 40));
   for (const s of map.sites) g.add(rectOutline(s.x0 * cs, s.y0 * cs, (s.x1 + 1) * cs, (s.y1 + 1) * cs, s.kind === 'base' ? PALETTE.base : PALETTE.depot, 40));
   return g;
-}
-
-/**
- * Roof clutter seen from above: air-conditioning units, stair and lift housings, water tanks.
- * Placed by hash inside each roof so the skyline stops reading as plain boxes.
- */
-function buildRooftops(map: MapInfo): THREE.Group {
-  const group = new THREE.Group();
-  const cs = map.cellSize;
-  const ac: THREE.Matrix4[] = [];
-  const stairs: THREE.Matrix4[] = [];
-  const tanks: THREE.Matrix4[] = [];
-  for (const b of map.buildings) {
-    const w = (b.x1 - b.x0 + 1) * cs - 0.6;
-    const d = (b.y1 - b.y0 + 1) * cs - 0.6;
-    const cx = b.x0 * cs + 0.3;
-    const cy = b.y0 * cs + 0.3;
-    const h = hash(b.id * 92821 + 7);
-    const at = (k: number, sx: number, sy: number, sz: number, margin: number) => {
-      const r = hash(h + k * 7919);
-      const px = cx + margin + ((r % 1000) / 1000) * Math.max(0, w - 2 * margin);
-      const py = cy + margin + (((r >> 10) % 1000) / 1000) * Math.max(0, d - 2 * margin);
-      return new THREE.Matrix4().makeScale(sx, sz, sy).setPosition(px, b.height, py);
-    };
-    const nAc = h % 4;
-    for (let k = 0; k < nAc; k++) ac.push(at(k, 1.3, 1.0, 0.9, 1.2));
-    if (w > 7 && d > 7 && h % 3 !== 0) stairs.push(at(10, 3.2, 2.6, 2.4, 2.4));
-    if (b.height > 14 && h % 5 < 2) tanks.push(at(20, 1.0, 1.0, 1.0, 2));
-  }
-  const box = new THREE.BoxGeometry(1, 1, 1);
-  box.translate(0, 0.5, 0);
-  const tank = new THREE.CylinderGeometry(1.1, 1.1, 1.8, 8);
-  tank.translate(0, 2.1, 0);
-  const legs = new THREE.BoxGeometry(1.6, 1.2, 1.6);
-  legs.translate(0, 0.6, 0);
-  const add = (geo: THREE.BufferGeometry, color: number, list: THREE.Matrix4[]) => {
-    if (list.length === 0) return;
-    const mesh = new THREE.InstancedMesh(geo, toon({ color }), list.length);
-    list.forEach((m, i) => mesh.setMatrixAt(i, m));
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    group.add(mesh);
-  };
-  add(box, 0x8e9192, ac);
-  add(box, 0x7d776c, stairs);
-  add(tank, 0x6a5a4a, tanks);
-  add(legs, 0x3a3836, tanks);
-  return group;
 }
 
 /**
@@ -257,6 +366,8 @@ function groundTexture(map: MapInfo): THREE.DataTexture {
   };
   const g = (cx: number, cy: number) => (cx < 0 || cy < 0 || cx >= map.width || cy >= map.height ? -1 : map.ground[cy * map.width + cx]);
   const inSite = (cx: number, cy: number) => map.sites.some((st) => cx >= st.x0 && cx <= st.x1 && cy >= st.y0 && cy <= st.y1);
+  const zones = new Array<DistrictZone>(map.width * map.height).fill('mixed');
+  for (const d of map.districts) for (let y = d.y0; y <= d.y1; y++) for (let x = d.x0; x <= d.x1; x++) zones[y * map.width + x] = d.zone;
   for (let ty = 0; ty < H; ty++) {
     const cy = Math.floor(ty / TPC);
     const sy = ty % TPC;
@@ -301,6 +412,17 @@ function groundTexture(map: MapInfo): THREE.DataTexture {
           mix = 0x6b6a3e;
           mixT = 0.5;
         }
+      } else if ((kind === Ground.Lot || kind === Ground.Building) && zones[cy * map.width + cx] === 'residential' && !inSite(cx, cy)) {
+        // House gardens: overgrown lawns with bare patches.
+        mix = n1 > 0.62 ? 0x5a553f : PALETTE.garden;
+        mixT = 0.6 + 0.25 * n2;
+        shade *= 0.88 + 0.2 * n1 + ((hash(tx * 31 + ty * 17) % 13) - 6) / 60;
+      } else if ((kind === Ground.Lot || kind === Ground.Building) && zones[cy * map.width + cx] === 'industrial' && !inSite(cx, cy)) {
+        // Industrial yards: concrete slabs with oil stains.
+        c = PALETTE.yard;
+        if ((sx === 0 && cx % 3 === 0) || (sy === 0 && cy % 3 === 0)) shade *= 0.85;
+        if (n2 < 0.18) shade *= 0.78;
+        shade *= 0.94 + 0.1 * n1;
       } else if ((kind === Ground.Lot || kind === Ground.Building) && !inSite(cx, cy)) {
         // Empty lots: dirt, weeds and broken concrete.
         mix = n1 > 0.55 ? 0x56513f : 0x4f5a39;

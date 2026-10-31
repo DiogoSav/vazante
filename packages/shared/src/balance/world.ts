@@ -5,6 +5,8 @@ export const CELL_SIZE = 4; // metres
 export const SECTOR_CELLS = 16; // 64 m
 export const ZOMBIE_POOL_CAPACITY = 16_384;
 export const MAX_TICKS_PER_FRAME = 8;
+/** Real-time multiplier on every speed step (1x, 2x, 4x play at 1.25x, 2.5x, 5x). Host pacing only. */
+export const TIME_SCALE = 1.25;
 
 /** Turn delay after a bite, in seconds (uniform). */
 export const BITE_TURN_MIN_S = 60;

@@ -35,7 +35,7 @@ function scatterHorde(w: World, count: number, bx: number, by: number, clearM: n
  */
 export function buildMission(id: MissionId, seed: number, opts: ScenarioOptions = {}): World {
   const def = MISSIONS[id];
-  const map = def.map === 'city' ? generateCityMap(seed) : generateSliceMap(seed);
+  const map = def.map === 'city' ? generateCityMap(seed, def.citySize) : generateSliceMap(seed);
   const w = new World(seed, map.grid, map.buildings, map.districts, map.sites, ZOMBIE_POOL_CAPACITY);
   w.difficulty = opts.difficulty ?? 'veteran';
   w.zombieKinds = def.zombieKinds;
@@ -95,7 +95,7 @@ export function cityWar(seed: number, opts: ScenarioOptions = {}): World {
 export function openField(seed: number, cells = 64): World {
   const grid = new Grid(cells, cells);
   grid.district.fill(1);
-  return new World(seed, grid, [], [{ id: 1, name: 'Campo', x0: 0, y0: 0, x1: cells - 1, y1: cells - 1 }], [], ZOMBIE_POOL_CAPACITY);
+  return new World(seed, grid, [], [{ id: 1, name: 'Campo', zone: 'mixed', x0: 0, y0: 0, x1: cells - 1, y1: cells - 1 }], [], ZOMBIE_POOL_CAPACITY);
 }
 
 export function createScenario(id: ScenarioId, seed: number, opts?: ScenarioOptions): World {
